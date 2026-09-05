@@ -148,16 +148,24 @@ function productCardHtml(p) {
     : '<div class="noimg">sem imagem</div>';
   var promoBadge = p.promoted ? '<span class="badge badge-promo promo-flag">★ destaque</span>' : '';
   var inCart = qty > 0;
+  var showPrice = p.show_price !== false;
+  var hasSale = showPrice && p.sale_price && Number(p.sale_price) > 0;
+  var priceHtml = hasSale
+    ? '<span class="price-strike">' + fmtBRL(p.price) + '</span><span class="price-sale">' + fmtBRL(p.sale_price) + '</span>'
+    : '<span class="price">' + fmtBRL(p.price) + '</span>';
+  var minQtyHtml = (p.min_qty && p.min_qty > 1)
+    ? '<div><span class="min-qty-badge">mín. ' + p.min_qty + ' ' + escapeHtml(p.unit || 'un') + '</span></div>'
+    : '';
   return (
     '<div class="card" data-id="' + p.id + '">' +
       '<div class="imgwrap">' + img + promoBadge + '</div>' +
       '<div class="body">' +
         '<h3 class="card-name">' + escapeHtml(p.name) + '</h3>' +
         (p.description ? '<div class="desc">' + escapeHtml(p.description) + '</div>' : '') +
-        '<div class="price-row">' +
-          '<span class="price">' + fmtBRL(p.price) + '</span>' +
-          (p.stock === 'sob_consulta' ? '<span class="badge badge-alert" style="font-size:10px;">sob consulta</span>' : '') +
-        '</div>' +
+        (showPrice
+          ? '<div class="price-row">' + priceHtml + (p.stock === 'sob_consulta' ? '<span class="badge badge-alert" style="font-size:10px;">sob consulta</span>' : '') + '</div>' + minQtyHtml
+          : '<div class="price-hidden-note">Consulte o preço no carrinho</div>'
+        ) +
         '<button type="button" class="btn-cart' + (inCart ? ' in-cart' : '') + '" data-add="' + p.id + '">' +
           (inCart ? '✓ No carrinho (' + qty + ')' : '+ Carrinho') +
         '</button>' +

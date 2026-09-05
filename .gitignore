@@ -9,3 +9,6 @@ desktop.ini
 
 # Local only
 iniciar.bat
+
+# Supabase temporários
+supabase/.temp/
