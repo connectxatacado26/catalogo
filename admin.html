@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connect X Atacado — Painel</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔧</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+<style>
+.login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--paper);padding:24px;}
+.login-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:44px 40px;width:100%;max-width:420px;display:flex;flex-direction:column;gap:18px;}
+.login-logo{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:6px;text-align:center;}
+.login-logo .name{font-family:'Fraunces',serif;font-size:24px;font-weight:600;color:var(--ink);}
+.login-logo .tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);}
+.login-card .btn-accent{justify-content:center;height:46px;font-size:15px;}
+
+.admin-topbar{background:var(--ink);color:#fff;padding:0 28px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;gap:16px;}
+.admin-topbar .brand{font-family:'Fraunces',serif;font-size:18px;font-weight:600;color:#fff;white-space:nowrap;}
+.admin-topbar .brand-tag{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-left:8px;}
+.admin-topbar .right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.admin-topbar .user-email{font-size:12px;color:rgba(255,255,255,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
+.admin-topbar a,.admin-topbar button.btn-ghost{color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.2);font-size:12px;}
+.admin-topbar a:hover,.admin-topbar button.btn-ghost:hover{background:rgba(255,255,255,.1);color:#fff;}
+
+.admin-body{max-width:1040px;margin:0 auto;padding:28px 24px;display:flex;flex-direction:column;gap:24px;}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.stat-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;text-align:center;}
+.stat-val{font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:500;color:var(--accent);}
+.stat-label{font-size:11px;color:var(--ink-soft);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;}
+
+.admin-section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;}
+.admin-section-head{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--line);}
+.admin-section-head h2{font-family:'Fraunces',serif;font-size:16px;font-weight:600;margin:0;}
+.admin-section-body{padding:20px 22px;}
+
+.product-admin-list{display:flex;flex-direction:column;gap:1px;background:var(--line);}
+.product-admin-row{display:grid;grid-template-columns:56px 1fr auto auto;gap:14px;align-items:center;padding:12px 20px;background:var(--card);}
+.product-admin-row.hidden-product{opacity:.5;}
+.product-admin-thumb{width:52px;height:52px;border-radius:10px;overflow:hidden;background:var(--paper-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;}
+.product-admin-thumb img{width:100%;height:100%;object-fit:cover;}
+.product-admin-info{min-width:0;}
+.product-admin-info .pname{font-weight:600;font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.product-admin-info .pmeta{font-size:12px;color:var(--ink-soft);margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.product-admin-price{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:var(--ink);white-space:nowrap;}
+.product-admin-actions{display:flex;gap:2px;flex-shrink:0;}
+.product-admin-actions button{border:none;background:none;cursor:pointer;font-size:15px;padding:5px 7px;border-radius:7px;color:var(--ink-soft);transition:background .12s,color .12s;line-height:1;}
+.product-admin-actions button:hover{background:var(--paper-2);color:var(--ink);}
+.product-admin-actions button.danger:hover{color:#c0392b;background:#fdecea;}
+
+.order-row{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:13px 22px;border-bottom:1px solid var(--line);}
+.order-row:last-child{border-bottom:none;}
+.order-row .oname{font-weight:600;font-size:14px;color:var(--ink);}
+.order-row .ometa{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+.order-price{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;white-space:nowrap;}
+.status-select{font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer;font-family:inherit;}
+</style>
+</head>
+<body style="background:var(--paper);margin:0;">
+
+<!-- ===== TELA DE LOGIN ===== -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="name">Connect X Atacado</span>
+      <span class="tag">Área administrativa</span>
+    </div>
+    <div class="field">
+      <label>E-mail</label>
+      <input type="email" id="login_email" placeholder="equipe@connectx.com.br" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <input type="password" id="login_password" autocomplete="current-password">
+    </div>
+    <button type="button" class="btn btn-accent" id="loginBtn">Entrar</button>
+    <div id="loginError" class="required-note" style="display:none;text-align:center;"></div>
+  </div>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
+<div id="adminDash" style="display:none;">
+  <div class="admin-topbar">
+    <div>
+      <span class="brand">Connect X Atacado</span>
+      <span class="brand-tag">Painel</span>
+    </div>
+    <div class="right">
+      <span class="user-email" id="adminUserEmail"></span>
+      <a class="btn btn-ghost btn-sm" href="index.html" target="_blank" rel="noopener" style="text-decoration:none;">Ver catálogo</a>
+      <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button">Sair</button>
+    </div>
+  </div>
+  <div class="admin-body">
+    <div class="stats-row" id="statsRow"></div>
+    <div class="admin-section">
+      <div class="admin-section-head">
+        <h2>Configurações da loja</h2>
+        <button class="btn btn-accent btn-sm" id="saveConfigBtn" type="button">Salvar</button>
+      </div>
+      <div class="admin-section-body">
+        <div class="field-row">
+          <div class="field"><label>Nome da loja</label><input type="text" id="cfg_name"></div>
+          <div class="field"><label>WhatsApp para pedidos</label><input type="tel" id="cfg_wpp" placeholder="55DDDNUMERO (só números)"></div>
+        </div>
+      </div>
+    </div>
+    <div class="admin-section">
+      <div class="admin-section-head">
+        <h2>Produtos</h2>
+        <button class="btn btn-accent btn-sm" id="newProductBtn" type="button">+ Novo produto</button>
+      </div>
+      <div id="productAdminList"></div>
+    </div>
+    <div class="admin-section" style="margin-bottom:48px;">
+      <div class="admin-section-head">
+        <h2>Pedidos recentes</h2>
+        <span class="count" id="ordersCount">0</span>
+      </div>
+      <div id="ordersAdminList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de produto -->
+<div class="modal-overlay" id="productModalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="productModalTitle">Novo produto</h2>
+      <button class="btn btn-icon btn-ghost" id="closeProductModalBtn" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body" id="productModalBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="cancelProductBtn" type="button">Cancelar</button>
+      <button class="btn btn-accent" id="saveProductBtn" type="button">Salvar produto</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastHost"></div>
+<script src="js/config.js"></script>
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>
