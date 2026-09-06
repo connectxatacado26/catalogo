@@ -120,7 +120,7 @@ async function doLogout() {
 }
 
 /* ============================================================
-   Alternância de telas
+   Alternância de telas e navegação por painéis
    ============================================================ */
 function showLogin() {
   document.getElementById('loginScreen').style.display = 'flex';
@@ -128,12 +128,21 @@ function showLogin() {
 }
 function showDashboard() {
   document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('adminDash').style.display = 'block';
+  document.getElementById('adminDash').style.display = 'flex';
   document.getElementById('adminUserEmail').textContent = state.session ? state.session.user.email : '';
   renderStats();
   renderConfig();
   renderProductList();
   renderOrders();
+  showPanel('overview');
+}
+function showPanel(name) {
+  document.querySelectorAll('.admin-panel').forEach(function (el) { el.classList.remove('active'); });
+  document.querySelectorAll('.nav-item').forEach(function (el) { el.classList.remove('active'); });
+  var panel = document.getElementById('panel-' + name);
+  if (panel) panel.classList.add('active');
+  var navBtn = document.querySelector('.nav-item[data-panel="' + name + '"]');
+  if (navBtn) navBtn.classList.add('active');
 }
 
 /* ============================================================
@@ -816,6 +825,9 @@ async function syncWithTiny() {
    Início
    ============================================================ */
 async function init() {
+  document.querySelectorAll('.nav-item[data-panel]').forEach(function (btn) {
+    btn.addEventListener('click', function () { showPanel(this.getAttribute('data-panel')); });
+  });
   document.getElementById('loginBtn').addEventListener('click', doLogin);
   document.getElementById('login_password').addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
   document.getElementById('logoutBtn').addEventListener('click', doLogout);
