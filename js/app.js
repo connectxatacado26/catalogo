@@ -341,7 +341,6 @@ function closeCart() {
    Checkout
    ============================================================ */
 function openCheckoutModal() {
-  _coCustomerChecked = false;
   var items = cartItems();
   if (!items.length) return;
   var body = document.getElementById('checkoutModalBody');
@@ -525,26 +524,34 @@ async function _createOrderAndRedirect(customer, phone, notes, items, customerFo
 }
 
 async function confirmCheckout() {
-  var items = cartItems();
-  if (!items.length) return;
-  var customer = document.getElementById('co_customer').value.trim();
-  if (!customer) {
-    document.getElementById('co_nameError').style.display = 'block';
-    document.getElementById('co_customer').focus();
-    return;
-  }
-  var phone = document.getElementById('co_phone').value.trim();
-  var notes = document.getElementById('co_notes').value.trim();
   var confirmBtn = document.getElementById('confirmCheckoutBtn');
+  if (confirmBtn && confirmBtn.disabled) return; // evita duplo clique
+  try {
+    var items = cartItems();
+    if (!items.length) { toast('Seu carrinho está vazio.'); return; }
+    var customer = document.getElementById('co_customer').value.trim();
+    if (!customer) {
+      document.getElementById('co_nameError').style.display = 'block';
+      document.getElementById('co_customer').focus();
+      return;
+    }
+    var phone = document.getElementById('co_phone').value.trim();
+    var notes = document.getElementById('co_notes').value.trim();
 
-  var customerFound = true;
-  if (phone) {
-    confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Verificando cadastro…';
-    customerFound = await _checkCustomerInTiny(phone);
+    if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Aguarde…'; }
+
+    var customerFound = true;
+    if (phone) {
+      if (confirmBtn) confirmBtn.textContent = 'Verificando cadastro…';
+      customerFound = await _checkCustomerInTiny(phone);
+    }
+
+    await _createOrderAndRedirect(customer, phone, notes, items, customerFound);
+  } catch (err) {
+    toast(friendlyError(err) || 'Erro inesperado. Tente novamente.');
+    var btn = document.getElementById('confirmCheckoutBtn');
+    if (btn) { btn.disabled = false; btn.textContent = '📲 Envie seu Pedido'; }
   }
-
-  await _createOrderAndRedirect(customer, phone, notes, items, customerFound);
 }
 
 /* ============================================================
