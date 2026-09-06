@@ -386,11 +386,86 @@ async function _checkCustomerInTiny(phone) {
   }
 }
 
+function _openOrderPdf(order, customerFound) {
+  // Agrupa itens por categoria usando state.products como referência
+  var byCategory = {};
+  order.items.forEach(function (it) {
+    var prod = state.products.filter(function (p) { return p.code === it.code || p.name === it.name; })[0];
+    var cat = (prod && prod.category) || 'Outros';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(it);
+  });
+
+  var dateStr = new Date(order.created_at).toLocaleString('pt-BR');
+  var catOrder = Object.keys(byCategory).sort(function(a,b){ return a === 'Outlet' ? 1 : b === 'Outlet' ? -1 : a.localeCompare(b, 'pt-BR'); });
+
+  var categoriesHtml = catOrder.map(function (cat) {
+    var rows = byCategory[cat].map(function (it) {
+      return '<tr><td style="padding:5px 16px 5px 0;color:#6b7280;font-size:13px;white-space:nowrap;">' + it.qty + 'x</td>' +
+             '<td style="padding:5px 0;font-size:14px;">' + it.name + (it.code ? ' <span style="color:#9ca3af;font-size:11px;">(' + it.code + ')</span>' : '') + '</td></tr>';
+    }).join('');
+    return '<tr><td colspan="2" style="padding:14px 0 5px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6366f1;border-bottom:1px solid #e5e7eb;">' + cat + '</td></tr>' + rows;
+  }).join('');
+
+  var notesHtml = order.notes
+    ? '<div style="margin-top:18px;padding:12px 16px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;font-size:13px;color:#374151;"><strong>Observações:</strong> ' + order.notes + '</div>'
+    : '';
+
+  var regSection = '';
+  if (!customerFound && order.customer_phone && state.config.whatsapp_number) {
+    var regUrl = 'https://wa.me/' + state.config.whatsapp_number + '?text=' + encodeURIComponent('Olá! Gostaria de me cadastrar como cliente Connect X Atacado. Meu nome é ' + order.customer_name + ' e meu WhatsApp é ' + order.customer_phone + '.');
+    regSection = '<div style="margin-top:24px;padding:16px 20px;background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;font-size:13px;color:#92400e;">' +
+      '<strong>👋 Você ainda não é nosso cliente cadastrado!</strong><br>' +
+      'Enquanto nossa equipe analisa seu pedido, preencha nossa ficha para receber ofertas exclusivas.<br><br>' +
+      '<a href="' + regUrl + '" target="_blank" style="display:inline-block;background:#f59e0b;color:#fff;padding:8px 18px;border-radius:8px;font-weight:700;font-size:13px;text-decoration:none;">📋 Preencher ficha agora</a>' +
+    '</div>';
+  }
+
+  var wppNum = state.config.whatsapp_number
+    ? state.config.whatsapp_number.replace(/^55/, '').replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
+    : '';
+
+  var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">' +
+    '<title>Pedido Connect X Atacado</title>' +
+    '<style>' +
+      'body{font-family:Arial,sans-serif;margin:0;padding:32px 40px;color:#111827;max-width:680px;margin:0 auto;}' +
+      'h1{font-size:22px;margin:0 0 2px;}' +
+      '@media print{.no-print{display:none!important;} body{padding:16px;}}' +
+    '</style></head><body>' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111827;padding-bottom:16px;margin-bottom:20px;">' +
+      '<div><h1>Connect X Atacado</h1><div style="font-size:12px;color:#6b7280;">Pedido · ' + dateStr + '</div></div>' +
+      '<div style="text-align:right;font-size:12px;color:#6b7280;">Cód. pedido<br><strong style="font-size:14px;color:#111827;">' + order.id.slice(0,8).toUpperCase() + '</strong></div>' +
+    '</div>' +
+    '<div style="background:#f3f4f6;border-radius:10px;padding:14px 18px;margin-bottom:24px;">' +
+      '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#6b7280;margin-bottom:6px;">Cliente</div>' +
+      '<div style="font-size:16px;font-weight:700;">' + order.customer_name + '</div>' +
+      (order.customer_phone ? '<div style="font-size:14px;color:#374151;margin-top:3px;">📱 ' + order.customer_phone + '</div>' : '') +
+    '</div>' +
+    '<table style="width:100%;border-collapse:collapse;">' + categoriesHtml + '</table>' +
+    notesHtml +
+    '<div style="margin-top:24px;padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;color:#6b7280;">' +
+      'Os preços serão informados pela equipe Connect X Atacado após análise do pedido.' +
+    '</div>' +
+    regSection +
+    (wppNum ? '<div class="no-print" style="margin-top:28px;padding:16px 20px;background:#dcfce7;border-radius:10px;font-size:14px;color:#166534;">' +
+      '<strong>📤 Envie este PDF no WhatsApp:</strong> ' + wppNum +
+      '<br><span style="font-size:12px;color:#4ade80;">Salve como PDF usando Ctrl+P → Imprimir → Salvar como PDF</span>' +
+    '</div>' : '') +
+    '</body></html>';
+
+  var w = window.open('', '_blank');
+  if (w) {
+    w.document.write(html);
+    w.document.close();
+    setTimeout(function () { w.focus(); w.print(); }, 600);
+  }
+}
+
 async function _createOrderAndRedirect(customer, phone, notes, items, customerFound) {
   var total = items.reduce(function (sum, it) { return sum + it.price * it.qty; }, 0);
   var confirmBtn = document.getElementById('confirmCheckoutBtn');
   confirmBtn.disabled = true;
-  confirmBtn.textContent = 'Enviando…';
+  confirmBtn.textContent = 'Gerando pedido…';
   try {
     var res = await supabase.from('orders').insert([{
       customer_name: customer,
@@ -401,50 +476,46 @@ async function _createOrderAndRedirect(customer, phone, notes, items, customerFo
     }]).select().single();
     if (res.error) throw res.error;
     var order = res.data;
-    var link = window.location.origin + window.location.pathname + '#pedido/' + order.id;
     state.cart = {};
     saveCartLocal();
     closeCart();
     renderCartCount();
     renderCatalog();
 
-    if (state.config.whatsapp_number) {
-      var lines = ['Olá! Sou *' + order.customer_name + '*. Gostaria de fazer um pedido:'];
-      if (order.customer_phone) lines.push('📱 ' + order.customer_phone);
-      lines.push('');
-      order.items.forEach(function (it) { lines.push('• ' + it.qty + 'x ' + it.name); });
-      if (order.notes) { lines.push(''); lines.push('Obs: ' + order.notes); }
-      lines.push('');
-      lines.push('Ver pedido: ' + link);
-      var wppOrderUrl = 'https://wa.me/' + state.config.whatsapp_number + '?text=' + encodeURIComponent(lines.join('\n'));
+    // Abre PDF em nova aba (com diálogo de impressão/salvar)
+    _openOrderPdf(order, customerFound);
 
-      if (!customerFound && phone) {
-        // Abre o pedido no WhatsApp em nova aba e exibe aviso de cadastro no modal
-        window.open(wppOrderUrl, '_blank');
-        var regUrl = 'https://wa.me/' + state.config.whatsapp_number + '?text=' + encodeURIComponent('Olá! Gostaria de me cadastrar como cliente Connect X Atacado. Meu nome é ' + customer + ' e meu WhatsApp é ' + phone + '.');
-        document.getElementById('checkoutModalBody').innerHTML =
-          '<div style="text-align:center;padding:16px 0 8px;">' +
-            '<div style="font-size:42px;margin-bottom:10px;">📋</div>' +
-            '<h3 style="margin:0 0 10px;font-family:\'Fraunces\',serif;color:var(--ink);">Pedido enviado!</h3>' +
-            '<p style="font-size:14px;color:var(--ink-soft);margin:0 0 16px;line-height:1.5;">' +
-              'Identificamos que você ainda não possui cadastro em nosso sistema.<br>' +
-              '<strong>Enquanto nossa equipe analisa os produtos que você deseja,</strong> preencha nossa ficha rapidinho para receber ofertas exclusivas e condições especiais!' +
-            '</p>' +
-            '<a href="' + regUrl + '" target="_blank" rel="noopener" ' +
-              'style="display:inline-block;background:var(--accent);color:#fff;padding:12px 24px;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;">📋 Preencher ficha agora</a>' +
-            '<p style="font-size:11px;color:var(--ink-faint);margin-top:14px;">Seu pedido já foi enviado para a nossa equipe via WhatsApp.</p>' +
-          '</div>';
-        var foot = document.querySelector('#checkoutModalOverlay .modal-foot');
-        if (foot) foot.innerHTML = '<button class="btn btn-ghost" id="closeCheckoutFinalBtn" type="button">Fechar</button>';
-        var closeBtn = document.getElementById('closeCheckoutFinalBtn');
-        if (closeBtn) closeBtn.addEventListener('click', closeCheckoutModal);
-      } else {
-        closeCheckoutModal();
-        window.location.href = wppOrderUrl;
-      }
-    } else {
-      closeCheckoutModal();
-      window.location.hash = 'pedido/' + order.id;
+    // Exibe confirmação no modal
+    var regUrl = (!customerFound && phone && state.config.whatsapp_number)
+      ? 'https://wa.me/' + state.config.whatsapp_number + '?text=' + encodeURIComponent('Olá! Gostaria de me cadastrar como cliente Connect X Atacado. Meu nome é ' + customer + ' e meu WhatsApp é ' + phone + '.')
+      : null;
+
+    document.getElementById('checkoutModalBody').innerHTML =
+      '<div style="text-align:center;padding:12px 0 8px;">' +
+        '<div style="font-size:44px;margin-bottom:10px;">✅</div>' +
+        '<h3 style="margin:0 0 8px;font-family:\'Fraunces\',serif;color:var(--ink);">Pedido gerado!</h3>' +
+        '<p style="font-size:14px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5;">' +
+          'Uma janela de impressão foi aberta. <strong>Salve como PDF</strong> e envie para nosso WhatsApp.' +
+        '</p>' +
+        (state.config.whatsapp_number
+          ? '<div style="font-size:15px;font-weight:700;padding:10px 0;color:var(--ink);">📱 ' +
+              state.config.whatsapp_number.replace(/^55/, '').replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3') +
+            '</div>'
+          : '') +
+        (!customerFound && phone && regUrl
+          ? '<div style="margin-top:16px;padding:14px;background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;font-size:13px;color:#92400e;text-align:left;">' +
+              '<strong>👋 Você ainda não possui cadastro!</strong><br>' +
+              'Enquanto nossa equipe analisa seu pedido, preencha nossa ficha rapidinho para receber ofertas exclusivas.' +
+              '<br><br><a href="' + regUrl + '" target="_blank" rel="noopener" ' +
+              'style="display:inline-block;background:#f59e0b;color:#fff;padding:8px 18px;border-radius:8px;font-weight:700;font-size:13px;text-decoration:none;">📋 Preencher ficha agora</a>' +
+            '</div>'
+          : '') +
+      '</div>';
+
+    var foot = document.querySelector('#checkoutModalOverlay .modal-foot');
+    if (foot) {
+      foot.innerHTML = '<button class="btn btn-ghost" id="closeCheckoutFinalBtn" type="button">Fechar</button>';
+      document.getElementById('closeCheckoutFinalBtn').addEventListener('click', closeCheckoutModal);
     }
   } catch (err) {
     toast(friendlyError(err));
