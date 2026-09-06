@@ -101,39 +101,6 @@ function filteredForGrid() {
   return list;
 }
 
-/* ============================================================
-   Grade de categorias
-   ============================================================ */
-function categoryThumbnail(cat) {
-  var withImg = visibleProducts().filter(function (p) { return p.category === cat && p.image_url; });
-  return withImg.length ? withImg[0].image_url : '';
-}
-function categoryMinPrice(cat) {
-  var list = visibleProducts().filter(function (p) { return p.category === cat; });
-  if (!list.length) return 0;
-  return Math.min.apply(null, list.map(function (p) { return Number(p.price) || 0; }));
-}
-function categoryCount(cat) {
-  return visibleProducts().filter(function (p) { return p.category === cat; }).length;
-}
-function categoryGridHtml() {
-  var cats = categoriesList();
-  if (!cats.length) return '';
-  var cards = cats.map(function (c) {
-    var img = categoryThumbnail(c);
-    var imgHtml = img
-      ? '<img src="' + escapeHtml(img) + '" alt="' + escapeHtml(c) + '" loading="lazy">'
-      : '<div class="noimg">📦</div>';
-    return (
-      '<button type="button" class="category-card" data-category="' + escapeHtml(c) + '">' +
-        '<div class="category-thumb">' + imgHtml + '</div>' +
-        '<div class="category-name">' + escapeHtml(c) + '</div>' +
-        '<div class="category-price mono">' + categoryCount(c) + ' produto(s) · a partir de ' + fmtBRL(categoryMinPrice(c)) + '</div>' +
-      '</button>'
-    );
-  }).join('');
-  return '<div class="section-head"><h2>Categorias</h2></div><div class="category-grid">' + cards + '</div>';
-}
 
 /* ============================================================
    Chips de categoria
@@ -230,12 +197,11 @@ function renderCatalog() {
     return;
   }
 
-  var showCategoryGrid = state.activeCategory === 'all' && !state.searchTerm.trim();
-  var html = showCategoryGrid ? categoryGridHtml() : '';
+  var html = '';
 
   if (state.activeCategory === 'destaques') {
     var promo = filteredForGrid().filter(function (p) { return p.promoted; });
-    html += '<div class="section-head"><h2>★ Destaques</h2><span class="count">' + promo.length + ' item(ns)</span></div>' +
+    html = '<div class="section-head"><h2>★ Destaques</h2><span class="count">' + promo.length + ' item(ns)</span></div>' +
       (promo.length ? '<div class="grid">' + promo.map(productCardHtml).join('') + '</div>' : '<div class="empty">Nenhum destaque no momento.</div>');
     root.innerHTML = html;
     bindCardEvents(root);
@@ -262,13 +228,6 @@ function renderCatalog() {
 }
 
 function bindCardEvents(root) {
-  Array.prototype.forEach.call(root.querySelectorAll('.category-card'), function (btn) {
-    btn.addEventListener('click', function () {
-      state.activeCategory = btn.getAttribute('data-category');
-      renderChips();
-      renderCatalog();
-    });
-  });
   Array.prototype.forEach.call(root.querySelectorAll('[data-add]'), function (btn) {
     btn.addEventListener('click', function () {
       var id = btn.getAttribute('data-add');
