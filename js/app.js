@@ -483,9 +483,6 @@ async function _createOrderAndRedirect(customer, phone, notes, items, customerFo
     renderCatalog();
 
     // Abre PDF em nova aba (com diálogo de impressão/salvar)
-    _openOrderPdf(order, customerFound);
-
-    // Exibe confirmação no modal
     var regUrl = (!customerFound && phone && state.config.whatsapp_number)
       ? 'https://wa.me/' + state.config.whatsapp_number + '?text=' + encodeURIComponent('Olá! Gostaria de me cadastrar como cliente Connect X Atacado. Meu nome é ' + customer + ' e meu WhatsApp é ' + phone + '.')
       : null;
@@ -493,15 +490,10 @@ async function _createOrderAndRedirect(customer, phone, notes, items, customerFo
     document.getElementById('checkoutModalBody').innerHTML =
       '<div style="text-align:center;padding:12px 0 8px;">' +
         '<div style="font-size:44px;margin-bottom:10px;">✅</div>' +
-        '<h3 style="margin:0 0 8px;font-family:\'Fraunces\',serif;color:var(--ink);">Pedido gerado!</h3>' +
+        '<h3 style="margin:0 0 8px;font-family:\'Fraunces\',serif;color:var(--ink);">Pedido recebido!</h3>' +
         '<p style="font-size:14px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5;">' +
-          'Uma janela de impressão foi aberta. <strong>Salve como PDF</strong> e envie para nosso WhatsApp.' +
+          'Seu pedido foi registrado com sucesso. Nossa equipe irá processá-lo e entrar em contato via WhatsApp em breve.' +
         '</p>' +
-        (state.config.whatsapp_number
-          ? '<div style="font-size:15px;font-weight:700;padding:10px 0;color:var(--ink);">📱 ' +
-              state.config.whatsapp_number.replace(/^55/, '').replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3') +
-            '</div>'
-          : '') +
         (!customerFound && phone && regUrl
           ? '<div style="margin-top:16px;padding:14px;background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;font-size:13px;color:#92400e;text-align:left;">' +
               '<strong>👋 Você ainda não possui cadastro!</strong><br>' +
