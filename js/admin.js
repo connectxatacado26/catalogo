@@ -369,7 +369,7 @@ async function saveBannerFromModal() {
 /* ============================================================
    Lista de produtos
    ============================================================ */
-var adminFilter = { search: '', category: '' };
+var adminFilter = { search: '', category: '', brand: '' };
 
 function updateCategoryFilterOptions() {
   var sel = document.getElementById('adminCategoryFilter');
@@ -380,18 +380,30 @@ function updateCategoryFilterOptions() {
     cats.map(function (c) { return '<option value="' + escapeHtml(c) + '"' + (c === current ? ' selected' : '') + '>' + escapeHtml(c) + '</option>'; }).join('');
 }
 
+function updateBrandFilterOptions() {
+  var sel = document.getElementById('adminBrandFilter');
+  if (!sel) return;
+  var current = sel.value;
+  var brands = brandsList();
+  sel.innerHTML = '<option value="">Todas as marcas</option>' +
+    brands.map(function (b) { return '<option value="' + escapeHtml(b) + '"' + (b === current ? ' selected' : '') + '>' + escapeHtml(b) + '</option>'; }).join('');
+}
+
 function renderProductList() {
   var host = document.getElementById('productAdminList');
   updateCategoryFilterOptions();
-  var term = adminFilter.search.toLowerCase();
-  var cat  = adminFilter.category;
+  updateBrandFilterOptions();
+  var term  = adminFilter.search.toLowerCase();
+  var cat   = adminFilter.category;
+  var brand = adminFilter.brand;
   var filtered = state.products.filter(function (p) {
     var matchSearch = !term ||
       (p.name  && p.name.toLowerCase().includes(term)) ||
       (p.code  && p.code.toLowerCase().includes(term)) ||
       (p.brand && p.brand.toLowerCase().includes(term));
-    var matchCat = !cat || p.category === cat;
-    return matchSearch && matchCat;
+    var matchCat   = !cat   || p.category === cat;
+    var matchBrand = !brand || p.brand === brand;
+    return matchSearch && matchCat && matchBrand;
   });
   if (!state.products.length) {
     host.innerHTML = '<div class="admin-section-body" style="color:var(--ink-soft);font-size:14px;">Nenhum produto. Clique em "+ Novo produto" para começar.</div>';
@@ -972,6 +984,10 @@ async function init() {
   });
   document.getElementById('adminCategoryFilter').addEventListener('change', function () {
     adminFilter.category = this.value;
+    renderProductList();
+  });
+  document.getElementById('adminBrandFilter').addEventListener('change', function () {
+    adminFilter.brand = this.value;
     renderProductList();
   });
   document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
