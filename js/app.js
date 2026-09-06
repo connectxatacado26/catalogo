@@ -180,7 +180,7 @@ function productCardHtml(p) {
           : ''
         ) +
         '<button type="button" class="btn-cart' + (inCart ? ' in-cart' : '') + '" data-add="' + p.id + '">' +
-          (inCart ? '✓ No carrinho (' + qty + ')' : '+ Carrinho') +
+          (inCart ? '✓ No carrinho (' + qty + ')' : 'Adicionar ao carrinho') +
         '</button>' +
       '</div>' +
     '</div>'
