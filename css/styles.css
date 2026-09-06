@@ -180,7 +180,9 @@ button{font-family:inherit;}
 .banner-admin-actions button:hover{background:var(--paper-2);color:var(--ink);}
 .banner-admin-actions button.danger:hover{color:#c0392b;background:#fdecea;}
 
-.chiprow{display:flex;gap:8px;flex-wrap:wrap;padding:16px 0 4px;}
+.chiprow{display:flex;flex-direction:column;gap:6px;padding:16px 0 4px;}
+.chiprow-brand{display:flex;gap:6px;flex-wrap:wrap;padding-bottom:6px;border-bottom:1px solid var(--line);}
+.chip-brand{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;}
 .chip{
   padding:7px 14px;border-radius:999px;border:1px solid var(--line);
   background:var(--card);font-size:13px;font-weight:500;color:var(--ink-soft);

@@ -154,6 +154,9 @@
       <button class="nav-item" data-panel="categories">
         <span class="nav-icon">🏷</span> Categorias
       </button>
+      <button class="nav-item" data-panel="brands">
+        <span class="nav-icon">🏢</span> Marcas
+      </button>
 
       <span class="sidebar-section-label">Vitrine</span>
       <button class="nav-item" data-panel="banners">
@@ -225,6 +228,20 @@
           </div>
           <div id="categoryAdminList" class="banner-admin-list">
             <div class="admin-section-body" style="color:var(--ink-soft);font-size:14px;">Nenhuma categoria cadastrada.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Marcas -->
+      <div id="panel-brands" class="admin-panel">
+        <p class="panel-title">Marcas</p>
+        <div class="admin-section">
+          <div class="admin-section-head">
+            <h2>Gerenciar marcas</h2>
+            <button class="btn btn-accent btn-sm" id="addBrandBtn" type="button">+ Nova marca</button>
+          </div>
+          <div id="brandAdminList" class="banner-admin-list">
+            <div class="admin-section-body" style="color:var(--ink-soft);font-size:14px;">Nenhuma marca cadastrada.</div>
           </div>
         </div>
       </div>
@@ -325,6 +342,23 @@
     <div class="modal-foot">
       <button class="btn btn-ghost" id="cancelCategoryBtn" type="button">Cancelar</button>
       <button class="btn btn-accent" id="saveCategoryBtn" type="button">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de marca -->
+<div class="modal-overlay" id="brandModalOverlay">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-head">
+      <h2 id="brandModalTitle">Nova marca</h2>
+      <button class="btn btn-icon btn-ghost" id="closeBrandModalBtn" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Nome da marca *</label><input type="text" id="brd_name" placeholder="Ex: Gold, Sony, Samsung…"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="cancelBrandBtn" type="button">Cancelar</button>
+      <button class="btn btn-accent" id="saveBrandBtn" type="button">Salvar</button>
     </div>
   </div>
 </div>

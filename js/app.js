@@ -6,9 +6,11 @@ import { supabase } from './supabaseClient.js';
 var state = {
   products: [],
   categories: [],
+  brands: [],
   config: { store_name: 'Connect X Atacado', whatsapp_number: '' },
   cart: {},
   activeCategory: 'all',
+  activeBrand: null,
   searchTerm: '',
   _nudge: null
 };
@@ -63,19 +65,25 @@ function visibleProducts() {
   return state.products.filter(function (p) { return !p.hidden; });
 }
 function categoriesList() {
+  var source = state.activeBrand
+    ? visibleProducts().filter(function (p) { return p.brand === state.activeBrand; })
+    : visibleProducts();
   var productCats = {};
-  visibleProducts().forEach(function (p) { if (p.category) productCats[p.category] = true; });
+  source.forEach(function (p) { if (p.category) productCats[p.category] = true; });
   if (state.categories && state.categories.length) {
     var regular = state.categories.filter(function (c) { return c.name !== 'Outlet' && productCats[c.name]; });
     var outlet  = state.categories.filter(function (c) { return c.name === 'Outlet'  && productCats[c.name]; });
     return regular.concat(outlet).map(function (c) { return c.name; });
   }
   var set = {};
-  visibleProducts().forEach(function (p) { if (p.category) set[p.category] = true; });
+  source.forEach(function (p) { if (p.category) set[p.category] = true; });
   return Object.keys(set).sort();
 }
 function filteredForGrid() {
   var list = visibleProducts();
+  if (state.activeBrand) {
+    list = list.filter(function (p) { return p.brand === state.activeBrand; });
+  }
   if (state.activeCategory === 'destaques') {
     list = list.filter(function (p) { return p.promoted; });
   } else if (state.activeCategory !== 'all') {
@@ -132,17 +140,42 @@ function categoryGridHtml() {
    ============================================================ */
 function renderChips() {
   var host = document.getElementById('chiprow');
+  var brandHtml = '';
+  if (state.brands.length > 1) {
+    var brandChips = [{ key: null, label: 'Todas as marcas' }].concat(
+      state.brands.map(function (b) { return { key: b.name, label: b.name }; })
+    );
+    brandHtml = '<div class="chiprow-brand">' + brandChips.map(function (b) {
+      var active = state.activeBrand === b.key ? ' active' : '';
+      return '<button type="button" class="chip chip-brand' + active + '" data-brand="' + escapeHtml(b.key || '') + '">' + escapeHtml(b.label) + '</button>';
+    }).join('') + '</div>';
+  }
+
   var cats = categoriesList();
-  var hasPromo = visibleProducts().some(function (p) { return p.promoted; });
+  var hasPromo = (state.activeBrand
+    ? visibleProducts().filter(function (p) { return p.brand === state.activeBrand; })
+    : visibleProducts()
+  ).some(function (p) { return p.promoted; });
   var chips = [{ key: 'all', label: 'Todos', outlet: false }];
   if (hasPromo) chips.push({ key: 'destaques', label: '★ Destaques', outlet: false });
   cats.forEach(function (c) { chips.push({ key: c, label: c, outlet: c === 'Outlet' }); });
-  host.innerHTML = chips.map(function (c) {
+  var catHtml = chips.map(function (c) {
     var active = state.activeCategory === c.key ? ' active' : '';
     var cls = 'chip' + (c.outlet ? ' chip-outlet' : '') + active;
     return '<button type="button" class="' + cls + '" data-category="' + escapeHtml(c.key) + '">' + escapeHtml(c.label) + '</button>';
   }).join('');
-  Array.prototype.forEach.call(host.querySelectorAll('.chip'), function (btn) {
+
+  host.innerHTML = brandHtml + catHtml;
+
+  Array.prototype.forEach.call(host.querySelectorAll('[data-brand]'), function (btn) {
+    btn.addEventListener('click', function () {
+      state.activeBrand = btn.getAttribute('data-brand') || null;
+      state.activeCategory = 'all';
+      renderChips();
+      renderCatalog();
+    });
+  });
+  Array.prototype.forEach.call(host.querySelectorAll('[data-category]'), function (btn) {
     btn.addEventListener('click', function () {
       state.activeCategory = btn.getAttribute('data-category');
       renderChips();
@@ -492,6 +525,12 @@ async function routeFromHash() {
 /* ============================================================
    Carregamento de dados
    ============================================================ */
+async function loadBrands() {
+  var res = await supabase.from('brands').select('*').order('sort_order').order('name');
+  if (!res.error) state.brands = res.data || [];
+  renderChips();
+  renderCatalog();
+}
 async function loadCategories() {
   var res = await supabase.from('categories').select('*').order('sort_order').order('name');
   if (!res.error) state.categories = res.data || [];
@@ -611,6 +650,9 @@ function subscribeRealtime() {
   supabase.channel('catalog-categories')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, function () { loadCategories(); })
     .subscribe();
+  supabase.channel('catalog-brands')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'brands' }, function () { loadBrands(); })
+    .subscribe();
 }
 
 /* ============================================================
@@ -638,7 +680,7 @@ async function init() {
   loadCartLocal();
   wireStaticEvents();
   renderCartCount();
-  await Promise.all([loadProducts(), loadConfig(), loadCategories()]);
+  await Promise.all([loadProducts(), loadConfig(), loadCategories(), loadBrands()]);
   subscribeRealtime();
   await routeFromHash();
 }

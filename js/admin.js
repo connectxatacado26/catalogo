@@ -5,6 +5,7 @@ var state = {
   orders: [],
   banners: [],
   categories: [],
+  brands: [],
   config: { store_name: 'Connect X Atacado', whatsapp_number: '' },
   session: null
 };
@@ -44,9 +45,7 @@ function statusLabel(s) {
   return { aguardando: 'Aguardando', confirmado: 'Confirmado', enviado: 'Enviado', cancelado: 'Cancelado' }[s] || s;
 }
 function brandsList() {
-  var set = {};
-  state.products.forEach(function (p) { if (p.brand) set[p.brand] = true; });
-  return Object.keys(set).sort();
+  return state.brands.map(function (b) { return b.name; });
 }
 function categoriesAdminList() {
   var set = {};
@@ -504,9 +503,16 @@ function openProductModal(id) {
     '<div class="modal-tab-panel active" data-panel="general">' +
       '<div class="field-row">' +
         '<div class="field"><label>Código (SKU)</label><input type="text" id="f_code" value="' + escapeHtml(p ? p.code : '') + '"></div>' +
-        '<div class="field"><label>Marca</label><input type="text" id="f_brand" list="brandList" value="' + escapeHtml(p ? p.brand : '') + '" placeholder="ex: Gold"></div>' +
+        '<div class="field"><label>Marca</label>' +
+          '<select id="f_brand">' +
+            '<option value="">— sem marca —</option>' +
+            state.brands.map(function (b) {
+              var sel = p && p.brand === b.name ? ' selected' : '';
+              return '<option value="' + escapeHtml(b.name) + '"' + sel + '>' + escapeHtml(b.name) + '</option>';
+            }).join('') +
+          '</select>' +
+        '</div>' +
       '</div>' +
-      '<datalist id="brandList">' + brandsList().map(function (b) { return '<option value="' + escapeHtml(b) + '">'; }).join('') + '</datalist>' +
       '<div class="field"><label>Categoria</label>' +
         '<select id="f_category">' +
           '<option value="">— sem categoria —</option>' +
@@ -660,6 +666,101 @@ async function deleteProduct(id) {
 }
 
 /* ============================================================
+   Marcas — CRUD
+   ============================================================ */
+var editingBrandId = null;
+
+async function loadBrands() {
+  var res = await supabase.from('brands').select('*').order('sort_order').order('name');
+  if (!res.error) state.brands = res.data || [];
+  renderBrandList();
+}
+
+function renderBrandList() {
+  var host = document.getElementById('brandAdminList');
+  if (!host) return;
+  if (!state.brands.length) {
+    host.innerHTML = '<div class="admin-section-body" style="color:var(--ink-soft);font-size:14px;">Nenhuma marca. Clique em "+ Nova marca" para começar.</div>';
+    return;
+  }
+  host.innerHTML = state.brands.map(function (b, idx) {
+    return '<div class="banner-admin-row">' +
+      '<div class="banner-admin-thumb" style="background:var(--paper-2);font-size:18px;">🏢</div>' +
+      '<div class="banner-admin-info"><div class="btitle">' + escapeHtml(b.name) + '</div></div>' +
+      '<div class="banner-admin-actions">' +
+        (idx > 0 ? '<button title="Mover para cima" data-bmove="up" data-bid="' + escapeHtml(b.id) + '">↑</button>' : '') +
+        (idx < state.brands.length - 1 ? '<button title="Mover para baixo" data-bmove="down" data-bid="' + escapeHtml(b.id) + '">↓</button>' : '') +
+        '<button title="Renomear" data-bedit="' + escapeHtml(b.id) + '">✏️</button>' +
+        '<button class="danger" title="Excluir" data-bdel="' + escapeHtml(b.id) + '">🗑</button>' +
+      '</div></div>';
+  }).join('');
+  host.querySelectorAll('[data-bedit]').forEach(function (btn) {
+    btn.addEventListener('click', function () { openBrandModal(this.getAttribute('data-bedit')); });
+  });
+  host.querySelectorAll('[data-bdel]').forEach(function (btn) {
+    btn.addEventListener('click', function () { deleteBrand(this.getAttribute('data-bdel')); });
+  });
+  host.querySelectorAll('[data-bmove]').forEach(function (btn) {
+    btn.addEventListener('click', function () { moveBrand(this.getAttribute('data-bid'), this.getAttribute('data-bmove')); });
+  });
+}
+
+async function moveBrand(id, dir) {
+  var list = state.brands;
+  var idx = list.findIndex(function (b) { return b.id === id; });
+  if (idx < 0) return;
+  var swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= list.length) return;
+  var a = list[idx], b = list[swapIdx];
+  var tmp = a.sort_order; a.sort_order = b.sort_order; b.sort_order = tmp;
+  await supabase.from('brands').update({ sort_order: a.sort_order }).eq('id', a.id);
+  await supabase.from('brands').update({ sort_order: b.sort_order }).eq('id', b.id);
+  await loadBrands();
+}
+
+async function deleteBrand(id) {
+  var brand = state.brands.find(function (b) { return b.id === id; });
+  if (!confirm('Excluir a marca "' + (brand ? brand.name : '') + '"?\n\nOs produtos com essa marca não serão excluídos.')) return;
+  var res = await supabase.from('brands').delete().eq('id', id);
+  if (res.error) { toast(friendlyError(res.error)); return; }
+  toast('Marca excluída.');
+  await loadBrands();
+}
+
+function openBrandModal(id) {
+  editingBrandId = id || null;
+  var brand = id ? state.brands.find(function (b) { return b.id === id; }) : null;
+  document.getElementById('brandModalTitle').textContent = brand ? 'Renomear marca' : 'Nova marca';
+  document.getElementById('brd_name').value = brand ? brand.name : '';
+  document.getElementById('brandModalOverlay').classList.add('open');
+  setTimeout(function () { document.getElementById('brd_name').focus(); }, 100);
+}
+
+function closeBrandModal() {
+  document.getElementById('brandModalOverlay').classList.remove('open');
+  editingBrandId = null;
+}
+
+async function saveBrandFromModal() {
+  var name = document.getElementById('brd_name').value.trim();
+  if (!name) { toast('Informe o nome da marca.'); return; }
+  var btn = document.getElementById('saveBrandBtn');
+  btn.disabled = true;
+  var res;
+  if (editingBrandId) {
+    res = await supabase.from('brands').update({ name: name }).eq('id', editingBrandId);
+  } else {
+    var maxOrder = state.brands.length ? Math.max.apply(null, state.brands.map(function (b) { return b.sort_order; })) + 1 : 0;
+    res = await supabase.from('brands').insert({ name: name, sort_order: maxOrder });
+  }
+  btn.disabled = false;
+  if (res.error) { toast(friendlyError(res.error)); return; }
+  closeBrandModal();
+  toast(editingBrandId ? 'Marca renomeada.' : 'Marca criada.');
+  await loadBrands();
+}
+
+/* ============================================================
    Carregamento de dados
    ============================================================ */
 async function loadProducts() {
@@ -679,7 +780,7 @@ async function loadOrders() {
   if (state.session) { renderStats(); renderOrders(); }
 }
 async function loadAll() {
-  await Promise.all([loadProducts(), loadConfig(), loadOrders(), loadBanners(), loadCategories()]);
+  await Promise.all([loadProducts(), loadConfig(), loadOrders(), loadBanners(), loadCategories(), loadBrands()]);
 }
 
 /* ============================================================
@@ -691,6 +792,7 @@ function subscribeRealtime() {
   supabase.channel('admin-config').on('postgres_changes', { event: '*', schema: 'public', table: 'store_config' }, function () { loadConfig(); }).subscribe();
   supabase.channel('admin-banners').on('postgres_changes', { event: '*', schema: 'public', table: 'banners' }, function () { loadBanners(); }).subscribe();
   supabase.channel('admin-categories').on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, function () { loadCategories(); }).subscribe();
+  supabase.channel('admin-brands').on('postgres_changes', { event: '*', schema: 'public', table: 'brands' }, function () { loadBrands(); }).subscribe();
 }
 
 /* ============================================================
@@ -879,6 +981,11 @@ async function init() {
   document.getElementById('cancelCategoryBtn').addEventListener('click', closeCategoryModal);
   document.getElementById('saveCategoryBtn').addEventListener('click', saveCategoryFromModal);
   document.getElementById('cf_name').addEventListener('keydown', function (e) { if (e.key === 'Enter') saveCategoryFromModal(); });
+  document.getElementById('addBrandBtn').addEventListener('click', function () { openBrandModal(null); });
+  document.getElementById('closeBrandModalBtn').addEventListener('click', closeBrandModal);
+  document.getElementById('cancelBrandBtn').addEventListener('click', closeBrandModal);
+  document.getElementById('saveBrandBtn').addEventListener('click', saveBrandFromModal);
+  document.getElementById('brd_name').addEventListener('keydown', function (e) { if (e.key === 'Enter') saveBrandFromModal(); });
   document.getElementById('addBannerBtn').addEventListener('click', function () { openBannerModal(null); });
   document.getElementById('closeBannerModalBtn').addEventListener('click', closeBannerModal);
   document.getElementById('cancelBannerBtn').addEventListener('click', closeBannerModal);
