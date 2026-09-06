@@ -158,7 +158,7 @@ button{font-family:inherit;}
 .card .code{font-size:11px;color:var(--ink-faint);}
 .card .desc{font-size:13px;color:var(--ink-soft);line-height:1.45;flex:1;}
 .card .price{font-size:17px;font-weight:600;color:var(--ink);margin-top:2px;}
-.card .price-row{display:flex;align-items:center;gap:8px;margin-top:2px;}
+.card .price-row{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:8px;}
 .card .price{font-size:17px;font-weight:700;color:var(--ink);}
 .btn-cart{
   display:block;width:100%;margin-top:8px;padding:10px 0;border:none;
