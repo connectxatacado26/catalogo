@@ -7,7 +7,7 @@ var state = {
   products: [],
   config: { store_name: 'Connect X Atacado', whatsapp_number: '' },
   cart: {},
-  activeBrand: 'all',
+  activeCategory: 'all',
   searchTerm: '',
   _nudge: null
 };
@@ -61,54 +61,58 @@ function statusLabel(s) {
 function visibleProducts() {
   return state.products.filter(function (p) { return !p.hidden; });
 }
-function brandsList() {
+function categoriesList() {
   var set = {};
-  visibleProducts().forEach(function (p) { if (p.brand) set[p.brand] = true; });
+  visibleProducts().forEach(function (p) { if (p.category) set[p.category] = true; });
   return Object.keys(set).sort();
 }
 function filteredForGrid() {
   var list = visibleProducts();
-  if (state.activeBrand === 'destaques') {
+  if (state.activeCategory === 'destaques') {
     list = list.filter(function (p) { return p.promoted; });
-  } else if (state.activeBrand !== 'all') {
-    list = list.filter(function (p) { return p.brand === state.activeBrand; });
+  } else if (state.activeCategory !== 'all') {
+    list = list.filter(function (p) { return p.category === state.activeCategory; });
   }
   var term = state.searchTerm.trim().toLowerCase();
   if (term) {
     list = list.filter(function (p) {
       return (p.name || '').toLowerCase().indexOf(term) > -1 ||
              (p.code || '').toLowerCase().indexOf(term) > -1 ||
-             (p.brand || '').toLowerCase().indexOf(term) > -1;
+             (p.brand || '').toLowerCase().indexOf(term) > -1 ||
+             (p.category || '').toLowerCase().indexOf(term) > -1;
     });
   }
   return list;
 }
 
 /* ============================================================
-   Grade de categorias por marca
+   Grade de categorias
    ============================================================ */
-function brandThumbnail(brand) {
-  var withImg = visibleProducts().filter(function (p) { return p.brand === brand && p.image_url; });
+function categoryThumbnail(cat) {
+  var withImg = visibleProducts().filter(function (p) { return p.category === cat && p.image_url; });
   return withImg.length ? withImg[0].image_url : '';
 }
-function brandMinPrice(brand) {
-  var list = visibleProducts().filter(function (p) { return p.brand === brand; });
+function categoryMinPrice(cat) {
+  var list = visibleProducts().filter(function (p) { return p.category === cat; });
   if (!list.length) return 0;
   return Math.min.apply(null, list.map(function (p) { return Number(p.price) || 0; }));
 }
+function categoryCount(cat) {
+  return visibleProducts().filter(function (p) { return p.category === cat; }).length;
+}
 function categoryGridHtml() {
-  var brands = brandsList();
-  if (!brands.length) return '';
-  var cards = brands.map(function (b) {
-    var img = brandThumbnail(b);
+  var cats = categoriesList();
+  if (!cats.length) return '';
+  var cards = cats.map(function (c) {
+    var img = categoryThumbnail(c);
     var imgHtml = img
-      ? '<img src="' + img + '" alt="' + escapeHtml(b) + '" loading="lazy">'
-      : '<div class="noimg">sem foto</div>';
+      ? '<img src="' + escapeHtml(img) + '" alt="' + escapeHtml(c) + '" loading="lazy">'
+      : '<div class="noimg">📦</div>';
     return (
-      '<button type="button" class="category-card" data-brand="' + escapeHtml(b) + '">' +
+      '<button type="button" class="category-card" data-category="' + escapeHtml(c) + '">' +
         '<div class="category-thumb">' + imgHtml + '</div>' +
-        '<div class="category-name">' + escapeHtml(b) + '</div>' +
-        '<div class="category-price mono">a partir de ' + fmtBRL(brandMinPrice(b)) + '</div>' +
+        '<div class="category-name">' + escapeHtml(c) + '</div>' +
+        '<div class="category-price mono">' + categoryCount(c) + ' produto(s) · a partir de ' + fmtBRL(categoryMinPrice(c)) + '</div>' +
       '</button>'
     );
   }).join('');
@@ -116,22 +120,22 @@ function categoryGridHtml() {
 }
 
 /* ============================================================
-   Chips de marca
+   Chips de categoria
    ============================================================ */
 function renderChips() {
   var host = document.getElementById('chiprow');
-  var brands = brandsList();
+  var cats = categoriesList();
   var hasPromo = visibleProducts().some(function (p) { return p.promoted; });
-  var chips = [{ key: 'all', label: 'Todas as marcas' }];
+  var chips = [{ key: 'all', label: 'Todos' }];
   if (hasPromo) chips.push({ key: 'destaques', label: '★ Destaques' });
-  brands.forEach(function (b) { chips.push({ key: b, label: b }); });
+  cats.forEach(function (c) { chips.push({ key: c, label: c }); });
   host.innerHTML = chips.map(function (c) {
-    var active = state.activeBrand === c.key ? ' active' : '';
-    return '<button type="button" class="chip' + active + '" data-brand="' + escapeHtml(c.key) + '">' + escapeHtml(c.label) + '</button>';
+    var active = state.activeCategory === c.key ? ' active' : '';
+    return '<button type="button" class="chip' + active + '" data-category="' + escapeHtml(c.key) + '">' + escapeHtml(c.label) + '</button>';
   }).join('');
   Array.prototype.forEach.call(host.querySelectorAll('.chip'), function (btn) {
     btn.addEventListener('click', function () {
-      state.activeBrand = btn.getAttribute('data-brand');
+      state.activeCategory = btn.getAttribute('data-category');
       renderChips();
       renderCatalog();
     });
@@ -184,10 +188,10 @@ function renderCatalog() {
     return;
   }
 
-  var showCategoryGrid = state.activeBrand === 'all' && !state.searchTerm.trim();
+  var showCategoryGrid = state.activeCategory === 'all' && !state.searchTerm.trim();
   var html = showCategoryGrid ? categoryGridHtml() : '';
 
-  if (state.activeBrand === 'destaques') {
+  if (state.activeCategory === 'destaques') {
     var promo = filteredForGrid().filter(function (p) { return p.promoted; });
     html += '<div class="section-head"><h2>★ Destaques</h2><span class="count">' + promo.length + ' item(ns)</span></div>' +
       (promo.length ? '<div class="grid">' + promo.map(productCardHtml).join('') + '</div>' : '<div class="empty">Nenhum destaque no momento.</div>');
@@ -200,12 +204,12 @@ function renderCatalog() {
   var promoted = list.filter(function (p) { return p.promoted; });
   var rest = list.filter(function (p) { return !p.promoted; });
 
-  if (promoted.length && state.activeBrand === 'all' && !state.searchTerm.trim()) {
+  if (promoted.length && state.activeCategory === 'all' && !state.searchTerm.trim()) {
     html += '<div class="section-head"><h2>★ Destaques</h2><span class="count">' + promoted.length + ' item(ns)</span></div>';
     html += '<div class="grid">' + promoted.map(productCardHtml).join('') + '</div>';
   }
-  var sectionTitle = state.activeBrand === 'all' ? 'Todos os produtos' : escapeHtml(state.activeBrand);
-  var restList = (state.activeBrand === 'all' && !state.searchTerm.trim()) ? rest : list;
+  var sectionTitle = state.activeCategory === 'all' ? 'Todos os produtos' : escapeHtml(state.activeCategory);
+  var restList = (state.activeCategory === 'all' && !state.searchTerm.trim()) ? rest : list;
   html += '<div class="section-head"><h2>' + sectionTitle + '</h2><span class="count">' + restList.length + ' item(ns)</span></div>';
   html += restList.length
     ? '<div class="grid">' + restList.map(productCardHtml).join('') + '</div>'
@@ -218,7 +222,7 @@ function renderCatalog() {
 function bindCardEvents(root) {
   Array.prototype.forEach.call(root.querySelectorAll('.category-card'), function (btn) {
     btn.addEventListener('click', function () {
-      state.activeBrand = btn.getAttribute('data-brand');
+      state.activeCategory = btn.getAttribute('data-category');
       renderChips();
       renderCatalog();
     });

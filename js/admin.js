@@ -46,6 +46,11 @@ function brandsList() {
   state.products.forEach(function (p) { if (p.brand) set[p.brand] = true; });
   return Object.keys(set).sort();
 }
+function categoriesAdminList() {
+  var set = {};
+  state.products.forEach(function (p) { if (p.category) set[p.category] = true; });
+  return Object.keys(set).sort();
+}
 
 /* ============================================================
    Upload de imagem
@@ -185,6 +190,7 @@ function renderProductList() {
             (p.brand ? ' <span style="font-weight:400;color:var(--ink-soft);">· ' + escapeHtml(p.brand) + '</span>' : '') +
           '</div>' +
           '<div class="pmeta">' +
+            (p.category ? '<span style="background:var(--paper-2);padding:2px 7px;border-radius:5px;font-size:11px;">' + escapeHtml(p.category) + '</span>' : '') +
             (p.code ? '<span>cód. ' + escapeHtml(p.code) + '</span>' : '') +
             (p.stock_qty !== null && p.stock_qty !== undefined ? '<span>' + p.stock_qty + ' em estoque</span>' : '') +
             flags.join('') +
@@ -272,6 +278,8 @@ function openProductModal(id) {
         '<div class="field"><label>Marca</label><input type="text" id="f_brand" list="brandList" value="' + escapeHtml(p ? p.brand : '') + '" placeholder="ex: Gold"></div>' +
       '</div>' +
       '<datalist id="brandList">' + brandsList().map(function (b) { return '<option value="' + escapeHtml(b) + '">'; }).join('') + '</datalist>' +
+      '<div class="field"><label>Categoria</label><input type="text" id="f_category" list="categoryList" value="' + escapeHtml(p ? (p.category || '') : '') + '" placeholder="ex: Bolsas, Bijuterias, Acessórios"></div>' +
+      '<datalist id="categoryList">' + categoriesAdminList().map(function (c) { return '<option value="' + escapeHtml(c) + '">'; }).join('') + '</datalist>' +
       '<div class="field"><label>Nome do produto</label><input type="text" id="f_name" value="' + escapeHtml(p ? p.name : '') + '"></div>' +
       '<div class="field"><label>Descrição curta</label><textarea id="f_desc">' + escapeHtml(p ? p.description : '') + '</textarea></div>' +
       '<div class="field"><label>Unidade de medida</label><select id="f_unit">' +
@@ -360,6 +368,7 @@ async function saveProductFromModal() {
     var data = {
       code: document.getElementById('f_code').value.trim(),
       brand: document.getElementById('f_brand').value.trim(),
+      category: document.getElementById('f_category').value.trim() || null,
       name: name,
       description: document.getElementById('f_desc').value.trim(),
       unit: unitVal,
