@@ -361,12 +361,13 @@ function openCheckoutModal() {
 }
 function closeCheckoutModal() {
   document.getElementById('checkoutModalOverlay').classList.remove('open');
+  // Restaura o rodapé ao estado original (necessário se pedido anterior o alterou)
   var foot = document.querySelector('#checkoutModalOverlay .modal-foot');
-  if (foot) foot.innerHTML =
-    '<button class="btn btn-ghost" id="cancelCheckoutBtn" type="button">Voltar</button>' +
-    '<button class="btn btn-accent" id="confirmCheckoutBtn" type="button">📲 Envie seu Pedido</button>';
-  document.getElementById('cancelCheckoutBtn') && document.getElementById('cancelCheckoutBtn').addEventListener('click', closeCheckoutModal);
-  document.getElementById('confirmCheckoutBtn') && document.getElementById('confirmCheckoutBtn').addEventListener('click', confirmCheckout);
+  if (foot && !document.getElementById('confirmCheckoutBtn')) {
+    foot.innerHTML =
+      '<button class="btn btn-ghost" id="cancelCheckoutBtn" type="button">Voltar</button>' +
+      '<button class="btn btn-accent" id="confirmCheckoutBtn" type="button">📲 Envie seu Pedido</button>';
+  }
 }
 
 async function _checkCustomerInTiny(phone) {
@@ -515,7 +516,6 @@ async function _createOrderAndRedirect(customer, phone, notes, items, customerFo
     var foot = document.querySelector('#checkoutModalOverlay .modal-foot');
     if (foot) {
       foot.innerHTML = '<button class="btn btn-ghost" id="closeCheckoutFinalBtn" type="button">Fechar</button>';
-      document.getElementById('closeCheckoutFinalBtn').addEventListener('click', closeCheckoutModal);
     }
   } catch (err) {
     toast(friendlyError(err));
@@ -748,9 +748,15 @@ function wireStaticEvents() {
   document.getElementById('openCartBtn').addEventListener('click', openCart);
   document.getElementById('closeCartBtn').addEventListener('click', closeCart);
   document.getElementById('cartOverlay').addEventListener('click', closeCart);
-  document.getElementById('closeCheckoutModalBtn').addEventListener('click', closeCheckoutModal);
-  document.getElementById('cancelCheckoutBtn').addEventListener('click', closeCheckoutModal);
-  document.getElementById('confirmCheckoutBtn').addEventListener('click', confirmCheckout);
+  // Delegação no overlay — sobrevive a rewrites de innerHTML no modal-foot
+  document.getElementById('checkoutModalOverlay').addEventListener('click', function (e) {
+    var id = e.target.id || (e.target.closest && e.target.closest('[id]') && e.target.closest('[id]').id) || '';
+    if (id === 'closeCheckoutModalBtn' || id === 'cancelCheckoutBtn' || id === 'closeCheckoutFinalBtn') {
+      closeCheckoutModal();
+    } else if (id === 'confirmCheckoutBtn') {
+      confirmCheckout();
+    }
+  });
   window.addEventListener('hashchange', routeFromHash);
 }
 
