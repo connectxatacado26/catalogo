@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient.js';
 var state = {
   products: [],
   orders: [],
+  banners: [],
   config: { store_name: 'Connect X Atacado', whatsapp_number: '' },
   session: null
 };
@@ -153,14 +154,7 @@ function renderStats() {
 function renderConfig() {
   document.getElementById('cfg_name').value = state.config.store_name || '';
   document.getElementById('cfg_wpp').value = state.config.whatsapp_number || '';
-  // Banner
   document.getElementById('cfg_banner_enabled').checked = !!state.config.banner_enabled;
-  document.getElementById('cfg_banner_title').value = state.config.banner_title || '';
-  document.getElementById('cfg_banner_subtitle').value = state.config.banner_subtitle || '';
-  document.getElementById('cfg_banner_image').value = state.config.banner_image_url || '';
-  document.getElementById('cfg_banner_link').value = state.config.banner_link || '';
-  document.getElementById('cfg_banner_btn').value = state.config.banner_btn_text || '';
-  updateBannerPreview();
 }
 async function saveConfig() {
   var name = document.getElementById('cfg_name').value.trim();
@@ -171,33 +165,165 @@ async function saveConfig() {
   state.config.whatsapp_number = wpp;
   toast('Configurações salvas.');
 }
-async function saveBanner() {
-  var patch = {
-    banner_enabled:   document.getElementById('cfg_banner_enabled').checked,
-    banner_title:     document.getElementById('cfg_banner_title').value.trim(),
-    banner_subtitle:  document.getElementById('cfg_banner_subtitle').value.trim(),
-    banner_image_url: document.getElementById('cfg_banner_image').value.trim(),
-    banner_link:      document.getElementById('cfg_banner_link').value.trim(),
-    banner_btn_text:  document.getElementById('cfg_banner_btn').value.trim()
-  };
-  var res = await supabase.from('store_config').update(patch).eq('id', true);
+async function saveBannerEnabled() {
+  var enabled = document.getElementById('cfg_banner_enabled').checked;
+  var res = await supabase.from('store_config').update({ banner_enabled: enabled }).eq('id', true);
   if (res.error) { toast(friendlyError(res.error)); return; }
-  Object.assign(state.config, patch);
-  toast('Banner salvo.');
+  state.config.banner_enabled = enabled;
+  toast(enabled ? 'Banners ativados.' : 'Banners desativados.');
 }
-function updateBannerPreview() {
-  var title = document.getElementById('cfg_banner_title').value.trim();
-  var sub   = document.getElementById('cfg_banner_subtitle').value.trim();
-  var btn   = document.getElementById('cfg_banner_btn').value.trim() || 'Ver mais';
-  var link  = document.getElementById('cfg_banner_link').value.trim();
-  var prev  = document.getElementById('bannerPreview');
-  if (!prev) return;
-  if (!title && !sub) { prev.style.display = 'none'; return; }
-  prev.style.display = '';
-  document.getElementById('bpTitle').textContent = title;
-  document.getElementById('bpSub').textContent = sub;
-  document.getElementById('bpBtn').textContent = link ? btn : '';
-  document.getElementById('bpBtn').style.display = link ? '' : 'none';
+
+/* ============================================================
+   Banners — CRUD
+   ============================================================ */
+var editingBannerId = null;
+var bannerPendingFile = null;
+var bannerPendingImageUrl = '';
+
+async function loadBanners() {
+  var res = await supabase.from('banners').select('*').order('sort_order');
+  if (!res.error) { state.banners = res.data || []; }
+  renderBannerList();
+}
+
+function renderBannerList() {
+  var host = document.getElementById('bannerAdminList');
+  if (!host) return;
+  if (!state.banners || !state.banners.length) {
+    host.innerHTML = '<div class="admin-section-body" style="color:var(--ink-soft);font-size:14px;">Nenhum banner. Clique em "+ Adicionar" para começar.</div>';
+    return;
+  }
+  host.innerHTML = state.banners.map(function (b, idx) {
+    var thumb = b.image_url
+      ? '<div class="banner-admin-thumb"><img src="' + escapeHtml(b.image_url) + '" alt=""></div>'
+      : '<div class="banner-admin-thumb" style="background:var(--accent);"><span style="font-size:18px;">🖼</span></div>';
+    return '<div class="banner-admin-row">' +
+      thumb +
+      '<div class="banner-admin-info">' +
+        '<div class="btitle">' + escapeHtml(b.title || '(sem título)') + '</div>' +
+        '<div class="bmeta">' + (b.subtitle ? escapeHtml(b.subtitle) : '<em>sem subtítulo</em>') +
+          ' &nbsp;·&nbsp; ' + (b.enabled ? '<span style="color:var(--accent);">Ativo</span>' : '<span style="color:var(--ink-faint);">Oculto</span>') +
+        '</div>' +
+      '</div>' +
+      '<div class="banner-admin-actions">' +
+        (idx > 0 ? '<button title="Mover para cima" data-move="up" data-bid="' + escapeHtml(b.id) + '">↑</button>' : '') +
+        (idx < state.banners.length - 1 ? '<button title="Mover para baixo" data-move="down" data-bid="' + escapeHtml(b.id) + '">↓</button>' : '') +
+        '<button title="Editar" data-edit="' + escapeHtml(b.id) + '">✏️</button>' +
+        '<button class="danger" title="Excluir" data-del="' + escapeHtml(b.id) + '">🗑</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  host.querySelectorAll('[data-edit]').forEach(function (btn) {
+    btn.addEventListener('click', function () { openBannerModal(this.getAttribute('data-edit')); });
+  });
+  host.querySelectorAll('[data-del]').forEach(function (btn) {
+    btn.addEventListener('click', function () { deleteBanner(this.getAttribute('data-del')); });
+  });
+  host.querySelectorAll('[data-move]').forEach(function (btn) {
+    btn.addEventListener('click', function () { moveBanner(this.getAttribute('data-bid'), this.getAttribute('data-move')); });
+  });
+}
+
+async function moveBanner(id, dir) {
+  var list = state.banners;
+  var idx = list.findIndex(function (b) { return b.id === id; });
+  if (idx < 0) return;
+  var swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= list.length) return;
+  var a = list[idx], b = list[swapIdx];
+  var tmp = a.sort_order; a.sort_order = b.sort_order; b.sort_order = tmp;
+  await supabase.from('banners').update({ sort_order: a.sort_order }).eq('id', a.id);
+  await supabase.from('banners').update({ sort_order: b.sort_order }).eq('id', b.id);
+  await loadBanners();
+}
+
+async function deleteBanner(id) {
+  if (!confirm('Excluir este banner?')) return;
+  var res = await supabase.from('banners').delete().eq('id', id);
+  if (res.error) { toast(friendlyError(res.error)); return; }
+  await loadBanners();
+  toast('Banner excluído.');
+}
+
+async function uploadBannerImage(file) {
+  var blob = await fileToResizedBlob(file);
+  var path = 'banners/' + Date.now() + '.jpg';
+  var up = await supabase.storage.from('product-images').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
+  if (up.error) throw up.error;
+  return supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
+}
+
+function openBannerModal(id) {
+  editingBannerId = id || null;
+  bannerPendingFile = null;
+  var b = id ? state.banners.find(function (x) { return x.id === id; }) : null;
+  bannerPendingImageUrl = b ? (b.image_url || '') : '';
+
+  var overlay = document.getElementById('bannerModalOverlay');
+  document.getElementById('bannerModalTitle').textContent = b ? 'Editar banner' : 'Novo banner';
+  document.getElementById('bf_title').value = b ? (b.title || '') : '';
+  document.getElementById('bf_subtitle').value = b ? (b.subtitle || '') : '';
+  document.getElementById('bf_link').value = b ? (b.link || '') : '';
+  document.getElementById('bf_btn').value = b ? (b.btn_text || '') : '';
+  document.getElementById('bf_enabled').checked = b ? b.enabled : true;
+
+  var prev = document.getElementById('bfImgPreview');
+  prev.innerHTML = bannerPendingImageUrl ? '<img src="' + escapeHtml(bannerPendingImageUrl) + '" style="max-height:80px;border-radius:6px;">' : '';
+
+  var fileInput = document.getElementById('bf_image');
+  fileInput.value = '';
+  fileInput.onchange = function () {
+    var file = fileInput.files[0];
+    if (!file) return;
+    bannerPendingFile = file;
+    var reader = new FileReader();
+    reader.onload = function () { prev.innerHTML = '<img src="' + reader.result + '" style="max-height:80px;border-radius:6px;">'; };
+    reader.readAsDataURL(file);
+  };
+
+  overlay.classList.add('open');
+}
+
+function closeBannerModal() {
+  document.getElementById('bannerModalOverlay').classList.remove('open');
+  editingBannerId = null;
+  bannerPendingFile = null;
+}
+
+async function saveBannerFromModal() {
+  var saveBtn = document.getElementById('saveBannerItemBtn');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Salvando…';
+  try {
+    var imgUrl = bannerPendingImageUrl;
+    if (bannerPendingFile) imgUrl = await uploadBannerImage(bannerPendingFile);
+    var data = {
+      title:      document.getElementById('bf_title').value.trim(),
+      subtitle:   document.getElementById('bf_subtitle').value.trim() || null,
+      image_url:  imgUrl || null,
+      link:       document.getElementById('bf_link').value.trim() || null,
+      btn_text:   document.getElementById('bf_btn').value.trim() || null,
+      enabled:    document.getElementById('bf_enabled').checked
+    };
+    var res;
+    if (editingBannerId) {
+      res = await supabase.from('banners').update(data).eq('id', editingBannerId);
+    } else {
+      var maxOrder = state.banners.length ? Math.max.apply(null, state.banners.map(function(b){ return b.sort_order; })) + 1 : 0;
+      data.sort_order = maxOrder;
+      res = await supabase.from('banners').insert(data);
+    }
+    if (res.error) { toast(friendlyError(res.error)); return; }
+    closeBannerModal();
+    await loadBanners();
+    toast(editingBannerId ? 'Banner atualizado.' : 'Banner adicionado.');
+  } catch (e) {
+    toast('Erro ao enviar imagem: ' + e.message);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Salvar banner';
+  }
 }
 
 /* ============================================================
@@ -479,7 +605,7 @@ async function loadOrders() {
   if (state.session) { renderStats(); renderOrders(); }
 }
 async function loadAll() {
-  await Promise.all([loadProducts(), loadConfig(), loadOrders()]);
+  await Promise.all([loadProducts(), loadConfig(), loadOrders(), loadBanners()]);
 }
 
 /* ============================================================
@@ -489,6 +615,7 @@ function subscribeRealtime() {
   supabase.channel('admin-products').on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, function () { loadProducts(); }).subscribe();
   supabase.channel('admin-orders').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, function () { loadOrders(); }).subscribe();
   supabase.channel('admin-config').on('postgres_changes', { event: '*', schema: 'public', table: 'store_config' }, function () { loadConfig(); }).subscribe();
+  supabase.channel('admin-banners').on('postgres_changes', { event: '*', schema: 'public', table: 'banners' }, function () { loadBanners(); }).subscribe();
 }
 
 /* ============================================================
@@ -547,10 +674,11 @@ async function init() {
   document.getElementById('logoutBtn').addEventListener('click', doLogout);
   document.getElementById('newProductBtn').addEventListener('click', function () { openProductModal(null); });
   document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
-  document.getElementById('saveBannerBtn').addEventListener('click', saveBanner);
-  ['cfg_banner_title','cfg_banner_subtitle','cfg_banner_link','cfg_banner_btn'].forEach(function(id) {
-    document.getElementById(id).addEventListener('input', updateBannerPreview);
-  });
+  document.getElementById('saveBannerEnabledBtn').addEventListener('click', saveBannerEnabled);
+  document.getElementById('addBannerBtn').addEventListener('click', function () { openBannerModal(null); });
+  document.getElementById('closeBannerModalBtn').addEventListener('click', closeBannerModal);
+  document.getElementById('cancelBannerBtn').addEventListener('click', closeBannerModal);
+  document.getElementById('saveBannerItemBtn').addEventListener('click', saveBannerFromModal);
   document.getElementById('tinySyncBtn').addEventListener('click', syncWithTiny);
   document.getElementById('closeProductModalBtn').addEventListener('click', closeProductModal);
   document.getElementById('cancelProductBtn').addEventListener('click', closeProductModal);

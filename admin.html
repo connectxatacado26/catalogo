@@ -107,37 +107,20 @@
         </div>
       </div>
     </div>
-    <!-- Banner do catálogo -->
+    <!-- Carrossel de banners -->
     <div class="admin-section">
       <div class="admin-section-head">
-        <h2>Banner do catálogo</h2>
-        <button class="btn btn-accent btn-sm" id="saveBannerBtn" type="button">Salvar banner</button>
-      </div>
-      <div class="admin-section-body">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-          <label class="checkbox-row" style="font-size:13px;font-weight:600;">
-            <input type="checkbox" id="cfg_banner_enabled"> Exibir banner no catálogo
+        <h2>Banners do catálogo</h2>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <label class="checkbox-row" style="font-size:13px;margin:0;">
+            <input type="checkbox" id="cfg_banner_enabled"> Exibir banners
           </label>
+          <button class="btn btn-ghost btn-sm" id="saveBannerEnabledBtn" type="button">Salvar</button>
+          <button class="btn btn-accent btn-sm" id="addBannerBtn" type="button">+ Adicionar</button>
         </div>
-        <div class="field-row">
-          <div class="field"><label>Título do banner</label><input type="text" id="cfg_banner_title" placeholder="Ex: Novidades da semana!"></div>
-          <div class="field"><label>Subtítulo / texto complementar</label><input type="text" id="cfg_banner_subtitle" placeholder="Ex: Aproveite os melhores preços"></div>
-        </div>
-        <div class="field-row">
-          <div class="field"><label>URL da imagem de fundo (opcional)</label><input type="text" id="cfg_banner_image" placeholder="https://..."></div>
-          <div class="field"><label>Link do botão CTA (opcional)</label><input type="text" id="cfg_banner_link" placeholder="https://..."></div>
-        </div>
-        <div class="field"><label>Texto do botão CTA</label><input type="text" id="cfg_banner_btn" placeholder="Ver mais" style="max-width:240px;"></div>
-        <!-- Prévia -->
-        <div id="bannerPreview" style="margin-top:16px;border-radius:10px;overflow:hidden;display:none;">
-          <div style="background:var(--accent);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-            <div>
-              <p id="bpTitle" style="margin:0;font-weight:700;font-size:15px;color:#fff;"></p>
-              <p id="bpSub" style="margin:3px 0 0;font-size:13px;color:rgba(255,255,255,.85);"></p>
-            </div>
-            <span id="bpBtn" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;font-size:13px;font-weight:600;padding:7px 16px;border-radius:999px;"></span>
-          </div>
-        </div>
+      </div>
+      <div id="bannerAdminList" class="banner-admin-list">
+        <div class="admin-section-body" style="color:var(--ink-soft);font-size:14px;">Nenhum banner cadastrado.</div>
       </div>
     </div>
     <!-- Sincronização Tiny ERP -->
@@ -182,6 +165,34 @@
     <div class="modal-foot">
       <button class="btn btn-ghost" id="cancelProductBtn" type="button">Cancelar</button>
       <button class="btn btn-accent" id="saveProductBtn" type="button">Salvar produto</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de banner -->
+<div class="modal-overlay" id="bannerModalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="bannerModalTitle">Novo banner</h2>
+      <button class="btn btn-icon btn-ghost" id="closeBannerModalBtn" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field"><label>Título *</label><input type="text" id="bf_title" placeholder="Ex: Novidades da semana!"></div>
+      <div class="field"><label>Subtítulo</label><input type="text" id="bf_subtitle" placeholder="Ex: Aproveite os melhores preços"></div>
+      <div class="field">
+        <label>Imagem de fundo</label>
+        <input type="file" id="bf_image" accept="image/*" style="margin-bottom:6px;">
+        <div id="bfImgPreview"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Link do botão (opcional)</label><input type="text" id="bf_link" placeholder="https://..."></div>
+        <div class="field"><label>Texto do botão</label><input type="text" id="bf_btn" placeholder="Ver mais"></div>
+      </div>
+      <label class="checkbox-row"><input type="checkbox" id="bf_enabled" checked> Ativo (visível no catálogo)</label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="cancelBannerBtn" type="button">Cancelar</button>
+      <button class="btn btn-accent" id="saveBannerItemBtn" type="button">Salvar banner</button>
     </div>
   </div>
 </div>

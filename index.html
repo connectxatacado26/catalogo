@@ -30,16 +30,13 @@
     </div>
   </div>
 
-  <!-- Banner do site (controlado pelo painel admin) -->
-  <div id="siteBanner" class="site-banner" style="display:none;" role="complementary">
-    <div class="site-banner-inner">
-      <div class="site-banner-text">
-        <p class="site-banner-title" id="bannerTitle"></p>
-        <p class="site-banner-sub" id="bannerSub"></p>
-      </div>
-      <a class="site-banner-cta" id="bannerCta" href="#" target="_blank" rel="noopener" style="display:none;"></a>
-    </div>
-    <button class="site-banner-close" id="bannerClose" aria-label="Fechar banner">✕</button>
+  <!-- Carrossel de banners (controlado pelo painel admin) -->
+  <div id="siteBanner" class="site-banner" style="display:none;" role="complementary" aria-label="Banners promocionais">
+    <div class="banner-track" id="bannerTrack"></div>
+    <button class="banner-arrow banner-arrow-prev" id="bannerPrev" aria-label="Banner anterior" style="display:none;">&#8249;</button>
+    <button class="banner-arrow banner-arrow-next" id="bannerNext" aria-label="Próximo banner" style="display:none;">&#8250;</button>
+    <div class="banner-dots" id="bannerDots" style="display:none;"></div>
+    <button class="site-banner-close" id="bannerClose" aria-label="Fechar banners">✕</button>
   </div>
 
   <div id="chiprow" class="chiprow"></div>
