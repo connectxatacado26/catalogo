@@ -191,6 +191,10 @@ button{font-family:inherit;}
 :root:not([data-theme="light"]) .chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
 @media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}}
 :root[data-theme="dark"] .chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+/* Chip especial — Outlet */
+.chip-outlet{border-color:var(--accent);color:var(--accent);font-weight:600;}
+.chip-outlet:hover{background:var(--accent);border-color:var(--accent);color:#fff;}
+.chip-outlet.active{background:var(--accent);border-color:var(--accent);color:#fff;}
 
 .section-head{display:flex;align-items:baseline;justify-content:space-between;margin:28px 0 14px;gap:12px;}
 .section-head h2{font-size:20px;font-weight:600;}

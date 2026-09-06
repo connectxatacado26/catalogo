@@ -5,6 +5,7 @@ import { supabase } from './supabaseClient.js';
    ============================================================ */
 var state = {
   products: [],
+  categories: [],
   config: { store_name: 'Connect X Atacado', whatsapp_number: '' },
   cart: {},
   activeCategory: 'all',
@@ -62,6 +63,13 @@ function visibleProducts() {
   return state.products.filter(function (p) { return !p.hidden; });
 }
 function categoriesList() {
+  var productCats = {};
+  visibleProducts().forEach(function (p) { if (p.category) productCats[p.category] = true; });
+  if (state.categories && state.categories.length) {
+    var regular = state.categories.filter(function (c) { return c.name !== 'Outlet' && productCats[c.name]; });
+    var outlet  = state.categories.filter(function (c) { return c.name === 'Outlet'  && productCats[c.name]; });
+    return regular.concat(outlet).map(function (c) { return c.name; });
+  }
   var set = {};
   visibleProducts().forEach(function (p) { if (p.category) set[p.category] = true; });
   return Object.keys(set).sort();
@@ -126,12 +134,13 @@ function renderChips() {
   var host = document.getElementById('chiprow');
   var cats = categoriesList();
   var hasPromo = visibleProducts().some(function (p) { return p.promoted; });
-  var chips = [{ key: 'all', label: 'Todos' }];
-  if (hasPromo) chips.push({ key: 'destaques', label: '★ Destaques' });
-  cats.forEach(function (c) { chips.push({ key: c, label: c }); });
+  var chips = [{ key: 'all', label: 'Todos', outlet: false }];
+  if (hasPromo) chips.push({ key: 'destaques', label: '★ Destaques', outlet: false });
+  cats.forEach(function (c) { chips.push({ key: c, label: c, outlet: c === 'Outlet' }); });
   host.innerHTML = chips.map(function (c) {
     var active = state.activeCategory === c.key ? ' active' : '';
-    return '<button type="button" class="chip' + active + '" data-category="' + escapeHtml(c.key) + '">' + escapeHtml(c.label) + '</button>';
+    var cls = 'chip' + (c.outlet ? ' chip-outlet' : '') + active;
+    return '<button type="button" class="' + cls + '" data-category="' + escapeHtml(c.key) + '">' + escapeHtml(c.label) + '</button>';
   }).join('');
   Array.prototype.forEach.call(host.querySelectorAll('.chip'), function (btn) {
     btn.addEventListener('click', function () {
@@ -483,6 +492,12 @@ async function routeFromHash() {
 /* ============================================================
    Carregamento de dados
    ============================================================ */
+async function loadCategories() {
+  var res = await supabase.from('categories').select('*').order('sort_order').order('name');
+  if (!res.error) state.categories = res.data || [];
+  renderChips();
+  renderCatalog();
+}
 async function loadProducts() {
   var res = await supabase.from('products').select('*').order('created_at', { ascending: false });
   if (res.error) { console.error(res.error); return; }
@@ -593,6 +608,9 @@ function subscribeRealtime() {
   supabase.channel('catalog-banners')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'banners' }, function () { loadConfig(); })
     .subscribe();
+  supabase.channel('catalog-categories')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, function () { loadCategories(); })
+    .subscribe();
 }
 
 /* ============================================================
@@ -620,7 +638,7 @@ async function init() {
   loadCartLocal();
   wireStaticEvents();
   renderCartCount();
-  await Promise.all([loadProducts(), loadConfig()]);
+  await Promise.all([loadProducts(), loadConfig(), loadCategories()]);
   subscribeRealtime();
   await routeFromHash();
 }

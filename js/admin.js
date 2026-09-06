@@ -156,6 +156,37 @@ function renderStats() {
     '<div class="stat-card"><div class="stat-val">' + total + '</div><div class="stat-label">Produtos</div></div>' +
     '<div class="stat-card"><div class="stat-val">' + visible + '</div><div class="stat-label">Visíveis</div></div>' +
     '<div class="stat-card"><div class="stat-val">' + pending + '</div><div class="stat-label">Pedidos aguardando</div></div>';
+  renderTopProducts();
+}
+function renderTopProducts() {
+  var host = document.getElementById('topProductsBody');
+  if (!host) return;
+  var counts = {};
+  state.orders.forEach(function (o) {
+    (o.items || []).forEach(function (it) {
+      var key = it.name || 'Produto';
+      counts[key] = (counts[key] || 0) + (it.qty || 1);
+    });
+  });
+  var sorted = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).slice(0, 8);
+  if (!sorted.length) {
+    host.innerHTML = '<div style="color:var(--ink-soft);font-size:13px;padding:4px 0;">Nenhum pedido registrado ainda. Os produtos mais pedidos aparecerão aqui.</div>';
+    return;
+  }
+  var max = counts[sorted[0]];
+  host.innerHTML = sorted.map(function (name, i) {
+    var pct = Math.round(counts[name] / max * 100);
+    return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">' +
+      '<span style="font-size:11px;font-weight:700;color:var(--ink-faint);width:14px;text-align:right;">' + (i + 1) + '</span>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(name) + '</div>' +
+        '<div style="height:5px;background:var(--line);border-radius:3px;margin-top:5px;">' +
+          '<div style="height:100%;width:' + pct + '%;background:var(--accent);border-radius:3px;"></div>' +
+        '</div>' +
+      '</div>' +
+      '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:var(--ink-soft);white-space:nowrap;">' + counts[name] + ' un.</span>' +
+    '</div>';
+  }).join('');
 }
 
 /* ============================================================
