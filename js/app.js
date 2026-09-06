@@ -177,7 +177,7 @@ function productCardHtml(p) {
         (p.description ? '<div class="desc">' + escapeHtml(p.description) + '</div>' : '') +
         (showPrice
           ? '<div class="price-row">' + priceHtml + (p.stock === 'sob_consulta' ? '<span class="badge badge-alert" style="font-size:10px;">sob consulta</span>' : '') + '</div>' + minQtyHtml
-          : '<div class="price-hidden-note">Consulte o preço no carrinho</div>'
+          : ''
         ) +
         '<button type="button" class="btn-cart' + (inCart ? ' in-cart' : '') + '" data-add="' + p.id + '">' +
           (inCart ? '✓ No carrinho (' + qty + ')' : '+ Carrinho') +
@@ -290,7 +290,6 @@ function renderCart() {
               '<span class="mono" style="min-width:26px;text-align:center;display:inline-block;">' + it.qty + '</span>' +
               '<button type="button" data-cstep="1" data-id="' + it.id + '">+</button>' +
             '</div>' +
-            '<div class="linetotal mono">' + fmtBRL(it.price * it.qty) + '</div>' +
           '</div>' +
           '<button type="button" class="remove-link" data-remove="' + it.id + '">remover</button>' +
         '</div>' +
@@ -298,14 +297,13 @@ function renderCart() {
     );
   }).join('');
 
-  var total = items.reduce(function (sum, it) { return sum + it.price * it.qty; }, 0);
   var nudgeHtml = '';
   if (state._nudge && !state.cart[state._nudge.id]) {
     nudgeHtml = '<div class="nudge"><span>Aproveite e leve <strong>' + escapeHtml(state._nudge.name) + '</strong> também.</span><button type="button" class="btn btn-sm" id="nudgeAddBtn">Adicionar</button></div>';
   }
   foot.innerHTML = nudgeHtml +
-    '<div class="subtotal-row"><span>Total</span><span class="mono">' + fmtBRL(total) + '</span></div>' +
-    '<button type="button" class="btn btn-accent" id="goCheckoutBtn" style="justify-content:center;">Finalizar pedido</button>';
+    '<div style="font-size:12px;color:var(--ink-soft);padding:6px 0 4px;">Os preços serão informados pela nossa equipe após análise do pedido.</div>' +
+    '<button type="button" class="btn btn-accent" id="goCheckoutBtn" style="justify-content:center;">📲 Envie seu Pedido</button>';
 
   Array.prototype.forEach.call(body.querySelectorAll('[data-cstep]'), function (btn) {
     btn.addEventListener('click', function () {
@@ -347,26 +345,29 @@ function openCheckoutModal() {
   var items = cartItems();
   if (!items.length) return;
   var body = document.getElementById('checkoutModalBody');
-  var total = items.reduce(function (sum, it) { return sum + it.price * it.qty; }, 0);
   body.innerHTML =
-    '<div class="eyebrow">Antes de finalizar…</div>' +
+    '<div class="eyebrow">Quase lá! Preencha seus dados:</div>' +
     '<div class="field"><label>Seu nome *</label><input type="text" id="co_customer" placeholder="Ex: João Silva"><div class="required-note" id="co_nameError" style="display:none;">Informe seu nome</div></div>' +
-    '<div class="field"><label>Seu WhatsApp (opcional)</label><input type="tel" id="co_phone" placeholder="(11) 99999-9999"></div>' +
+    '<div class="field"><label>Seu WhatsApp *</label><input type="tel" id="co_phone" placeholder="(11) 99999-9999"></div>' +
     '<div class="field"><label>Observações (opcional)</label><textarea id="co_notes" placeholder="Cor, urgência, combinação de itens..."></textarea></div>' +
     '<div style="border-top:1px solid var(--line);padding-top:12px;">' +
       items.map(function (it) {
-        return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;"><span>' + it.qty + 'x ' + escapeHtml(it.name) + '</span><span class="mono">' + fmtBRL(it.price * it.qty) + '</span></div>';
+        return '<div style="font-size:13px;padding:3px 0;">• ' + it.qty + 'x ' + escapeHtml(it.name) + '</div>';
       }).join('') +
-      '<div style="display:flex;justify-content:space-between;font-weight:600;padding-top:8px;"><span>Total</span><span class="mono">' + fmtBRL(total) + '</span></div>' +
+      '<div style="font-size:11px;color:var(--ink-soft);margin-top:8px;">Os preços serão informados pela nossa equipe após análise do pedido.</div>' +
     '</div>' +
     (state.config.whatsapp_number ? '' : '<div class="required-note">A equipe Connect X ainda não configurou o WhatsApp de recebimento — o pedido será apenas registrado.</div>');
   document.getElementById('checkoutModalOverlay').classList.add('open');
 }
 function closeCheckoutModal() {
   document.getElementById('checkoutModalOverlay').classList.remove('open');
-  _coCustomerChecked = false;
+  var foot = document.querySelector('#checkoutModalOverlay .modal-foot');
+  if (foot) foot.innerHTML =
+    '<button class="btn btn-ghost" id="cancelCheckoutBtn" type="button">Voltar</button>' +
+    '<button class="btn btn-accent" id="confirmCheckoutBtn" type="button">📲 Envie seu Pedido</button>';
+  document.getElementById('cancelCheckoutBtn') && document.getElementById('cancelCheckoutBtn').addEventListener('click', closeCheckoutModal);
+  document.getElementById('confirmCheckoutBtn') && document.getElementById('confirmCheckoutBtn').addEventListener('click', confirmCheckout);
 }
-var _coCustomerChecked = false;
 
 async function _checkCustomerInTiny(phone) {
   try {
@@ -385,11 +386,11 @@ async function _checkCustomerInTiny(phone) {
   }
 }
 
-async function _createOrderAndRedirect(customer, phone, notes, items) {
+async function _createOrderAndRedirect(customer, phone, notes, items, customerFound) {
   var total = items.reduce(function (sum, it) { return sum + it.price * it.qty; }, 0);
   var confirmBtn = document.getElementById('confirmCheckoutBtn');
   confirmBtn.disabled = true;
-  confirmBtn.textContent = 'Gerando pedido…';
+  confirmBtn.textContent = 'Enviando…';
   try {
     var res = await supabase.from('orders').insert([{
       customer_name: customer,
@@ -403,26 +404,52 @@ async function _createOrderAndRedirect(customer, phone, notes, items) {
     var link = window.location.origin + window.location.pathname + '#pedido/' + order.id;
     state.cart = {};
     saveCartLocal();
-    closeCheckoutModal();
     closeCart();
+    renderCartCount();
+    renderCatalog();
+
     if (state.config.whatsapp_number) {
-      var lines = ['Olá! Sou *' + order.customer_name + '*. Gostaria de finalizar meu pedido:', ''];
-      order.items.forEach(function (it) { lines.push('• ' + it.qty + 'x ' + it.name + ' — ' + fmtBRL(it.price * it.qty)); });
+      var lines = ['Olá! Sou *' + order.customer_name + '*. Gostaria de fazer um pedido:'];
+      if (order.customer_phone) lines.push('📱 ' + order.customer_phone);
       lines.push('');
-      lines.push('*Total: ' + fmtBRL(order.total) + '*');
+      order.items.forEach(function (it) { lines.push('• ' + it.qty + 'x ' + it.name); });
       if (order.notes) { lines.push(''); lines.push('Obs: ' + order.notes); }
       lines.push('');
       lines.push('Ver pedido: ' + link);
-      window.location.href = 'https://wa.me/' + state.config.whatsapp_number + '?text=' + encodeURIComponent(lines.join('\n'));
+      var wppOrderUrl = 'https://wa.me/' + state.config.whatsapp_number + '?text=' + encodeURIComponent(lines.join('\n'));
+
+      if (!customerFound && phone) {
+        // Abre o pedido no WhatsApp em nova aba e exibe aviso de cadastro no modal
+        window.open(wppOrderUrl, '_blank');
+        var regUrl = 'https://wa.me/' + state.config.whatsapp_number + '?text=' + encodeURIComponent('Olá! Gostaria de me cadastrar como cliente Connect X Atacado. Meu nome é ' + customer + ' e meu WhatsApp é ' + phone + '.');
+        document.getElementById('checkoutModalBody').innerHTML =
+          '<div style="text-align:center;padding:16px 0 8px;">' +
+            '<div style="font-size:42px;margin-bottom:10px;">📋</div>' +
+            '<h3 style="margin:0 0 10px;font-family:\'Fraunces\',serif;color:var(--ink);">Pedido enviado!</h3>' +
+            '<p style="font-size:14px;color:var(--ink-soft);margin:0 0 16px;line-height:1.5;">' +
+              'Identificamos que você ainda não possui cadastro em nosso sistema.<br>' +
+              '<strong>Enquanto nossa equipe analisa os produtos que você deseja,</strong> preencha nossa ficha rapidinho para receber ofertas exclusivas e condições especiais!' +
+            '</p>' +
+            '<a href="' + regUrl + '" target="_blank" rel="noopener" ' +
+              'style="display:inline-block;background:var(--accent);color:#fff;padding:12px 24px;border-radius:10px;font-weight:700;font-size:14px;text-decoration:none;">📋 Preencher ficha agora</a>' +
+            '<p style="font-size:11px;color:var(--ink-faint);margin-top:14px;">Seu pedido já foi enviado para a nossa equipe via WhatsApp.</p>' +
+          '</div>';
+        var foot = document.querySelector('#checkoutModalOverlay .modal-foot');
+        if (foot) foot.innerHTML = '<button class="btn btn-ghost" id="closeCheckoutFinalBtn" type="button">Fechar</button>';
+        var closeBtn = document.getElementById('closeCheckoutFinalBtn');
+        if (closeBtn) closeBtn.addEventListener('click', closeCheckoutModal);
+      } else {
+        closeCheckoutModal();
+        window.location.href = wppOrderUrl;
+      }
     } else {
-      renderCartCount();
-      renderCatalog();
+      closeCheckoutModal();
       window.location.hash = 'pedido/' + order.id;
     }
   } catch (err) {
     toast(friendlyError(err));
     confirmBtn.disabled = false;
-    confirmBtn.textContent = 'Continuar mesmo assim';
+    confirmBtn.textContent = '📲 Envie seu Pedido';
   }
 }
 
@@ -439,46 +466,14 @@ async function confirmCheckout() {
   var notes = document.getElementById('co_notes').value.trim();
   var confirmBtn = document.getElementById('confirmCheckoutBtn');
 
-  // Se já passou pela verificação, vai direto para o pedido
-  if (_coCustomerChecked) {
-    await _createOrderAndRedirect(customer, phone, notes, items);
-    return;
-  }
-
-  // Verifica cliente no Tiny apenas se forneceu telefone
+  var customerFound = true;
   if (phone) {
     confirmBtn.disabled = true;
     confirmBtn.textContent = 'Verificando cadastro…';
-    var found = await _checkCustomerInTiny(phone);
-    _coCustomerChecked = true;
-
-    if (!found) {
-      // Mostra aviso de não-cadastrado
-      var existing = document.getElementById('co_new_customer_notice');
-      if (!existing) {
-        var wppUrl = state.config.whatsapp_number
-          ? 'https://wa.me/' + state.config.whatsapp_number + '?text=' + encodeURIComponent('Olá! Gostaria de me cadastrar como cliente Connect X Atacado.')
-          : null;
-        var notice = document.createElement('div');
-        notice.id = 'co_new_customer_notice';
-        notice.style.cssText = 'background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;padding:14px 16px;font-size:13px;color:#92400e;margin-top:14px;line-height:1.5;';
-        notice.innerHTML =
-          '<strong>👋 Você ainda não é nosso cliente cadastrado!</strong><br>' +
-          'Preencha nossa ficha rapidinho e faça parte do grupo para receber ofertas exclusivas.' +
-          (wppUrl
-            ? '<br><br><a href="' + wppUrl + '" target="_blank" rel="noopener" ' +
-              'style="display:inline-block;background:#f59e0b;color:#fff;padding:7px 16px;border-radius:8px;font-weight:600;font-size:12px;text-decoration:none;">📋 Quero me cadastrar</a>'
-            : '');
-        document.getElementById('checkoutModalBody').appendChild(notice);
-      }
-      confirmBtn.disabled = false;
-      confirmBtn.textContent = 'Continuar mesmo assim →';
-      return;
-    }
+    customerFound = await _checkCustomerInTiny(phone);
   }
 
-  _coCustomerChecked = true;
-  await _createOrderAndRedirect(customer, phone, notes, items);
+  await _createOrderAndRedirect(customer, phone, notes, items, customerFound);
 }
 
 /* ============================================================
