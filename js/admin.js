@@ -4,6 +4,7 @@ var state = {
   products: [],
   orders: [],
   banners: [],
+  categories: [],
   config: { store_name: 'Connect X Atacado', whatsapp_number: '' },
   session: null
 };
@@ -466,8 +467,15 @@ function openProductModal(id) {
         '<div class="field"><label>Marca</label><input type="text" id="f_brand" list="brandList" value="' + escapeHtml(p ? p.brand : '') + '" placeholder="ex: Gold"></div>' +
       '</div>' +
       '<datalist id="brandList">' + brandsList().map(function (b) { return '<option value="' + escapeHtml(b) + '">'; }).join('') + '</datalist>' +
-      '<div class="field"><label>Categoria</label><input type="text" id="f_category" list="categoryList" value="' + escapeHtml(p ? (p.category || '') : '') + '" placeholder="ex: Bolsas, Bijuterias, Acessórios"></div>' +
-      '<datalist id="categoryList">' + categoriesAdminList().map(function (c) { return '<option value="' + escapeHtml(c) + '">'; }).join('') + '</datalist>' +
+      '<div class="field"><label>Categoria</label>' +
+        '<select id="f_category">' +
+          '<option value="">— sem categoria —</option>' +
+          state.categories.map(function (c) {
+            var sel = p && p.category === c.name ? ' selected' : '';
+            return '<option value="' + escapeHtml(c.name) + '"' + sel + '>' + escapeHtml(c.name) + '</option>';
+          }).join('') +
+        '</select>' +
+      '</div>' +
       '<div class="field"><label>Nome do produto</label><input type="text" id="f_name" value="' + escapeHtml(p ? p.name : '') + '"></div>' +
       '<div class="field"><label>Descrição curta</label><textarea id="f_desc">' + escapeHtml(p ? p.description : '') + '</textarea></div>' +
       '<div class="field"><label>Unidade de medida</label><select id="f_unit">' +
@@ -631,7 +639,7 @@ async function loadOrders() {
   if (state.session) { renderStats(); renderOrders(); }
 }
 async function loadAll() {
-  await Promise.all([loadProducts(), loadConfig(), loadOrders(), loadBanners()]);
+  await Promise.all([loadProducts(), loadConfig(), loadOrders(), loadBanners(), loadCategories()]);
 }
 
 /* ============================================================
@@ -642,6 +650,103 @@ function subscribeRealtime() {
   supabase.channel('admin-orders').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, function () { loadOrders(); }).subscribe();
   supabase.channel('admin-config').on('postgres_changes', { event: '*', schema: 'public', table: 'store_config' }, function () { loadConfig(); }).subscribe();
   supabase.channel('admin-banners').on('postgres_changes', { event: '*', schema: 'public', table: 'banners' }, function () { loadBanners(); }).subscribe();
+  supabase.channel('admin-categories').on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, function () { loadCategories(); }).subscribe();
+}
+
+/* ============================================================
+   Categorias — CRUD
+   ============================================================ */
+var editingCategoryId = null;
+
+async function loadCategories() {
+  var res = await supabase.from('categories').select('*').order('sort_order').order('name');
+  if (!res.error) state.categories = res.data || [];
+  renderCategoryList();
+  updateCategoryFilterOptions();
+}
+
+function renderCategoryList() {
+  var host = document.getElementById('categoryAdminList');
+  if (!host) return;
+  if (!state.categories.length) {
+    host.innerHTML = '<div class="admin-section-body" style="color:var(--ink-soft);font-size:14px;">Nenhuma categoria. Clique em "+ Nova categoria" para começar.</div>';
+    return;
+  }
+  host.innerHTML = state.categories.map(function (c, idx) {
+    return '<div class="banner-admin-row">' +
+      '<div class="banner-admin-thumb" style="background:var(--paper-2);font-size:18px;">🏷</div>' +
+      '<div class="banner-admin-info"><div class="btitle">' + escapeHtml(c.name) + '</div></div>' +
+      '<div class="banner-admin-actions">' +
+        (idx > 0 ? '<button title="Mover para cima" data-cmove="up" data-cid="' + escapeHtml(c.id) + '">↑</button>' : '') +
+        (idx < state.categories.length - 1 ? '<button title="Mover para baixo" data-cmove="down" data-cid="' + escapeHtml(c.id) + '">↓</button>' : '') +
+        '<button title="Renomear" data-cedit="' + escapeHtml(c.id) + '">✏️</button>' +
+        '<button class="danger" title="Excluir" data-cdel="' + escapeHtml(c.id) + '">🗑</button>' +
+      '</div></div>';
+  }).join('');
+  host.querySelectorAll('[data-cedit]').forEach(function (btn) {
+    btn.addEventListener('click', function () { openCategoryModal(this.getAttribute('data-cedit')); });
+  });
+  host.querySelectorAll('[data-cdel]').forEach(function (btn) {
+    btn.addEventListener('click', function () { deleteCategory(this.getAttribute('data-cdel')); });
+  });
+  host.querySelectorAll('[data-cmove]').forEach(function (btn) {
+    btn.addEventListener('click', function () { moveCategory(this.getAttribute('data-cid'), this.getAttribute('data-cmove')); });
+  });
+}
+
+async function moveCategory(id, dir) {
+  var list = state.categories;
+  var idx = list.findIndex(function (c) { return c.id === id; });
+  if (idx < 0) return;
+  var swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= list.length) return;
+  var a = list[idx], b = list[swapIdx];
+  var tmp = a.sort_order; a.sort_order = b.sort_order; b.sort_order = tmp;
+  await supabase.from('categories').update({ sort_order: a.sort_order }).eq('id', a.id);
+  await supabase.from('categories').update({ sort_order: b.sort_order }).eq('id', b.id);
+  await loadCategories();
+}
+
+async function deleteCategory(id) {
+  var cat = state.categories.find(function (c) { return c.id === id; });
+  if (!confirm('Excluir a categoria "' + (cat ? cat.name : '') + '"?\n\nOs produtos com essa categoria não serão excluídos.')) return;
+  var res = await supabase.from('categories').delete().eq('id', id);
+  if (res.error) { toast(friendlyError(res.error)); return; }
+  toast('Categoria excluída.');
+  await loadCategories();
+}
+
+function openCategoryModal(id) {
+  editingCategoryId = id || null;
+  var cat = id ? state.categories.find(function (c) { return c.id === id; }) : null;
+  document.getElementById('categoryModalTitle').textContent = cat ? 'Renomear categoria' : 'Nova categoria';
+  document.getElementById('cf_name').value = cat ? cat.name : '';
+  document.getElementById('categoryModalOverlay').classList.add('open');
+  setTimeout(function () { document.getElementById('cf_name').focus(); }, 100);
+}
+
+function closeCategoryModal() {
+  document.getElementById('categoryModalOverlay').classList.remove('open');
+  editingCategoryId = null;
+}
+
+async function saveCategoryFromModal() {
+  var name = document.getElementById('cf_name').value.trim();
+  if (!name) { toast('Informe o nome da categoria.'); return; }
+  var btn = document.getElementById('saveCategoryBtn');
+  btn.disabled = true;
+  var res;
+  if (editingCategoryId) {
+    res = await supabase.from('categories').update({ name: name }).eq('id', editingCategoryId);
+  } else {
+    var maxOrder = state.categories.length ? Math.max.apply(null, state.categories.map(function (c) { return c.sort_order; })) + 1 : 0;
+    res = await supabase.from('categories').insert({ name: name, sort_order: maxOrder });
+  }
+  btn.disabled = false;
+  if (res.error) { toast(friendlyError(res.error)); return; }
+  closeCategoryModal();
+  toast(editingCategoryId ? 'Categoria renomeada.' : 'Categoria criada.');
+  await loadCategories();
 }
 
 /* ============================================================
@@ -726,6 +831,11 @@ async function init() {
   });
   document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
   document.getElementById('saveBannerEnabledBtn').addEventListener('click', saveBannerEnabled);
+  document.getElementById('addCategoryBtn').addEventListener('click', function () { openCategoryModal(null); });
+  document.getElementById('closeCategoryModalBtn').addEventListener('click', closeCategoryModal);
+  document.getElementById('cancelCategoryBtn').addEventListener('click', closeCategoryModal);
+  document.getElementById('saveCategoryBtn').addEventListener('click', saveCategoryFromModal);
+  document.getElementById('cf_name').addEventListener('keydown', function (e) { if (e.key === 'Enter') saveCategoryFromModal(); });
   document.getElementById('addBannerBtn').addEventListener('click', function () { openBannerModal(null); });
   document.getElementById('closeBannerModalBtn').addEventListener('click', closeBannerModal);
   document.getElementById('cancelBannerBtn').addEventListener('click', closeBannerModal);

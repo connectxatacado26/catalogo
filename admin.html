@@ -137,6 +137,17 @@
       </div>
     </div>
 
+    <!-- Categorias -->
+    <div class="admin-section">
+      <div class="admin-section-head">
+        <h2>Categorias</h2>
+        <button class="btn btn-accent btn-sm" id="addCategoryBtn" type="button">+ Nova categoria</button>
+      </div>
+      <div id="categoryAdminList" class="banner-admin-list">
+        <div class="admin-section-body" style="color:var(--ink-soft);font-size:14px;">Nenhuma categoria cadastrada.</div>
+      </div>
+    </div>
+
     <div class="admin-section">
       <div class="admin-section-head">
         <h2>Produtos</h2>
@@ -176,6 +187,23 @@
     <div class="modal-foot">
       <button class="btn btn-ghost" id="cancelProductBtn" type="button">Cancelar</button>
       <button class="btn btn-accent" id="saveProductBtn" type="button">Salvar produto</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de categoria -->
+<div class="modal-overlay" id="categoryModalOverlay">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-head">
+      <h2 id="categoryModalTitle">Nova categoria</h2>
+      <button class="btn btn-icon btn-ghost" id="closeCategoryModalBtn" type="button" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Nome da categoria *</label><input type="text" id="cf_name" placeholder="Ex: Fones de Ouvido, Cabos, Pendrives…"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="cancelCategoryBtn" type="button">Cancelar</button>
+      <button class="btn btn-accent" id="saveCategoryBtn" type="button">Salvar</button>
     </div>
   </div>
 </div>
