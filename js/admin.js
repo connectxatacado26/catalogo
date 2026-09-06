@@ -329,13 +329,39 @@ async function saveBannerFromModal() {
 /* ============================================================
    Lista de produtos
    ============================================================ */
+var adminFilter = { search: '', category: '' };
+
+function updateCategoryFilterOptions() {
+  var sel = document.getElementById('adminCategoryFilter');
+  if (!sel) return;
+  var current = sel.value;
+  var cats = categoriesAdminList();
+  sel.innerHTML = '<option value="">Todas as categorias</option>' +
+    cats.map(function (c) { return '<option value="' + escapeHtml(c) + '"' + (c === current ? ' selected' : '') + '>' + escapeHtml(c) + '</option>'; }).join('');
+}
+
 function renderProductList() {
   var host = document.getElementById('productAdminList');
+  updateCategoryFilterOptions();
+  var term = adminFilter.search.toLowerCase();
+  var cat  = adminFilter.category;
+  var filtered = state.products.filter(function (p) {
+    var matchSearch = !term ||
+      (p.name  && p.name.toLowerCase().includes(term)) ||
+      (p.code  && p.code.toLowerCase().includes(term)) ||
+      (p.brand && p.brand.toLowerCase().includes(term));
+    var matchCat = !cat || p.category === cat;
+    return matchSearch && matchCat;
+  });
   if (!state.products.length) {
     host.innerHTML = '<div class="admin-section-body" style="color:var(--ink-soft);font-size:14px;">Nenhum produto. Clique em "+ Novo produto" para começar.</div>';
     return;
   }
-  var rows = state.products.map(function (p) {
+  if (!filtered.length) {
+    host.innerHTML = '<div class="admin-section-body" style="color:var(--ink-soft);font-size:14px;">Nenhum produto encontrado com esses filtros.</div>';
+    return;
+  }
+  var rows = filtered.map(function (p) {
     var thumb = p.image_url
       ? '<img src="' + escapeHtml(p.image_url) + '" alt="">'
       : '<span>📷</span>';
@@ -619,6 +645,22 @@ function subscribeRealtime() {
 }
 
 /* ============================================================
+   Ações em massa
+   ============================================================ */
+async function hideAllPrices() {
+  if (!confirm('Ocultar o preço de TODOS os produtos para os clientes?\n\nEles ainda aparecerão no catálogo, mas sem exibir o valor.')) return;
+  var btn = document.getElementById('hideAllPricesBtn');
+  btn.disabled = true;
+  btn.textContent = 'Ocultando…';
+  var res = await supabase.from('products').update({ show_price: false }).neq('id', '00000000-0000-0000-0000-000000000000');
+  btn.disabled = false;
+  btn.textContent = 'Ocultar todos os preços';
+  if (res.error) { toast(friendlyError(res.error)); return; }
+  toast('Preços ocultados em todos os produtos.');
+  await loadProducts();
+}
+
+/* ============================================================
    Tiny ERP — sincronização manual
    ============================================================ */
 async function syncWithTiny() {
@@ -673,6 +715,15 @@ async function init() {
   document.getElementById('login_password').addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
   document.getElementById('logoutBtn').addEventListener('click', doLogout);
   document.getElementById('newProductBtn').addEventListener('click', function () { openProductModal(null); });
+  document.getElementById('hideAllPricesBtn').addEventListener('click', hideAllPrices);
+  document.getElementById('adminSearchInput').addEventListener('input', function () {
+    adminFilter.search = this.value;
+    renderProductList();
+  });
+  document.getElementById('adminCategoryFilter').addEventListener('change', function () {
+    adminFilter.category = this.value;
+    renderProductList();
+  });
   document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
   document.getElementById('saveBannerEnabledBtn').addEventListener('click', saveBannerEnabled);
   document.getElementById('addBannerBtn').addEventListener('click', function () { openBannerModal(null); });

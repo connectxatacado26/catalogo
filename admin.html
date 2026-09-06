@@ -140,7 +140,18 @@
     <div class="admin-section">
       <div class="admin-section-head">
         <h2>Produtos</h2>
-        <button class="btn btn-accent btn-sm" id="newProductBtn" type="button">+ Novo produto</button>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" id="hideAllPricesBtn" type="button" title="Oculta o preço de todos os produtos para os clientes">Ocultar todos os preços</button>
+          <button class="btn btn-accent btn-sm" id="newProductBtn" type="button">+ Novo produto</button>
+        </div>
+      </div>
+      <div class="admin-section-body" style="padding-bottom:0;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <input type="text" id="adminSearchInput" placeholder="Buscar por nome, código ou marca…" style="flex:1;min-width:160px;">
+          <select id="adminCategoryFilter" style="padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);color:var(--ink);font-size:13px;cursor:pointer;">
+            <option value="">Todas as categorias</option>
+          </select>
+        </div>
       </div>
       <div id="productAdminList"></div>
     </div>
