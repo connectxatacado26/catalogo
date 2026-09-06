@@ -343,6 +343,7 @@ function closeCart() {
    Checkout
    ============================================================ */
 function openCheckoutModal() {
+  _coCustomerChecked = false;
   var items = cartItems();
   if (!items.length) return;
   var body = document.getElementById('checkoutModalBody');
@@ -363,48 +364,49 @@ function openCheckoutModal() {
 }
 function closeCheckoutModal() {
   document.getElementById('checkoutModalOverlay').classList.remove('open');
+  _coCustomerChecked = false;
 }
-async function confirmCheckout() {
-  var items = cartItems();
-  if (!items.length) return;
-  var customer = document.getElementById('co_customer').value.trim();
-  if (!customer) {
-    document.getElementById('co_nameError').style.display = 'block';
-    document.getElementById('co_customer').focus();
-    return;
-  }
-  var phone = document.getElementById('co_phone').value.trim();
-  var notes = document.getElementById('co_notes').value.trim();
-  var total = items.reduce(function (sum, it) { return sum + it.price * it.qty; }, 0);
+var _coCustomerChecked = false;
 
+async function _checkCustomerInTiny(phone) {
+  try {
+    var cfg = window.CONNECTX_CONFIG || {};
+    var url = cfg.SUPABASE_URL + '/functions/v1/check-customer';
+    var res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': cfg.SUPABASE_ANON_KEY },
+      body: JSON.stringify({ phone: phone.replace(/\D/g, '') }),
+      signal: AbortSignal.timeout(10000)
+    });
+    var data = await res.json();
+    return !!data.found;
+  } catch (_e) {
+    return true; // em caso de erro, não bloqueia
+  }
+}
+
+async function _createOrderAndRedirect(customer, phone, notes, items) {
+  var total = items.reduce(function (sum, it) { return sum + it.price * it.qty; }, 0);
   var confirmBtn = document.getElementById('confirmCheckoutBtn');
   confirmBtn.disabled = true;
-  confirmBtn.textContent = 'Gerando…';
-
-  var payload = {
-    customer_name: customer,
-    customer_phone: phone,
-    notes: notes,
-    items: items.map(function (it) { return { name: it.name, code: it.code, brand: it.brand, price: it.price, qty: it.qty }; }),
-    total: total
-  };
-
+  confirmBtn.textContent = 'Gerando pedido…';
   try {
-    var res = await supabase.from('orders').insert([payload]).select().single();
+    var res = await supabase.from('orders').insert([{
+      customer_name: customer,
+      customer_phone: phone,
+      notes: notes,
+      items: items.map(function (it) { return { name: it.name, code: it.code, brand: it.brand, price: it.price, qty: it.qty }; }),
+      total: total
+    }]).select().single();
     if (res.error) throw res.error;
     var order = res.data;
     var link = window.location.origin + window.location.pathname + '#pedido/' + order.id;
-
     state.cart = {};
     saveCartLocal();
     closeCheckoutModal();
     closeCart();
-
     if (state.config.whatsapp_number) {
-      var lines = [
-        'Olá! Sou *' + order.customer_name + '*. Gostaria de finalizar meu pedido:',
-        ''
-      ];
+      var lines = ['Olá! Sou *' + order.customer_name + '*. Gostaria de finalizar meu pedido:', ''];
       order.items.forEach(function (it) { lines.push('• ' + it.qty + 'x ' + it.name + ' — ' + fmtBRL(it.price * it.qty)); });
       lines.push('');
       lines.push('*Total: ' + fmtBRL(order.total) + '*');
@@ -419,10 +421,64 @@ async function confirmCheckout() {
     }
   } catch (err) {
     toast(friendlyError(err));
-  } finally {
     confirmBtn.disabled = false;
-    confirmBtn.textContent = 'Gerar pedido';
+    confirmBtn.textContent = 'Continuar mesmo assim';
   }
+}
+
+async function confirmCheckout() {
+  var items = cartItems();
+  if (!items.length) return;
+  var customer = document.getElementById('co_customer').value.trim();
+  if (!customer) {
+    document.getElementById('co_nameError').style.display = 'block';
+    document.getElementById('co_customer').focus();
+    return;
+  }
+  var phone = document.getElementById('co_phone').value.trim();
+  var notes = document.getElementById('co_notes').value.trim();
+  var confirmBtn = document.getElementById('confirmCheckoutBtn');
+
+  // Se já passou pela verificação, vai direto para o pedido
+  if (_coCustomerChecked) {
+    await _createOrderAndRedirect(customer, phone, notes, items);
+    return;
+  }
+
+  // Verifica cliente no Tiny apenas se forneceu telefone
+  if (phone) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Verificando cadastro…';
+    var found = await _checkCustomerInTiny(phone);
+    _coCustomerChecked = true;
+
+    if (!found) {
+      // Mostra aviso de não-cadastrado
+      var existing = document.getElementById('co_new_customer_notice');
+      if (!existing) {
+        var wppUrl = state.config.whatsapp_number
+          ? 'https://wa.me/' + state.config.whatsapp_number + '?text=' + encodeURIComponent('Olá! Gostaria de me cadastrar como cliente Connect X Atacado.')
+          : null;
+        var notice = document.createElement('div');
+        notice.id = 'co_new_customer_notice';
+        notice.style.cssText = 'background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;padding:14px 16px;font-size:13px;color:#92400e;margin-top:14px;line-height:1.5;';
+        notice.innerHTML =
+          '<strong>👋 Você ainda não é nosso cliente cadastrado!</strong><br>' +
+          'Preencha nossa ficha rapidinho e faça parte do grupo para receber ofertas exclusivas.' +
+          (wppUrl
+            ? '<br><br><a href="' + wppUrl + '" target="_blank" rel="noopener" ' +
+              'style="display:inline-block;background:#f59e0b;color:#fff;padding:7px 16px;border-radius:8px;font-weight:600;font-size:12px;text-decoration:none;">📋 Quero me cadastrar</a>'
+            : '');
+        document.getElementById('checkoutModalBody').appendChild(notice);
+      }
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Continuar mesmo assim →';
+      return;
+    }
+  }
+
+  _coCustomerChecked = true;
+  await _createOrderAndRedirect(customer, phone, notes, items);
 }
 
 /* ============================================================
