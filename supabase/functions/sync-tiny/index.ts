@@ -165,10 +165,10 @@ Deno.serve(async (req: Request) => {
             }
             if (tp.codigo) patch.code = tp.codigo
             if (zeroStock) patch.hidden = true
-            await supabase.from('products').update(patch).eq('id', existId)
-            updated++
+            const { error: updErr } = await supabase.from('products').update(patch).eq('id', existId)
+            if (updErr) { console.error('Update error', tp.id, updErr.message); errors++ } else updated++
           } else {
-            await supabase.from('products').insert({
+            const { error: insErr } = await supabase.from('products').insert({
               code:        tp.codigo ?? '',
               name:        tp.nome?.trim() ?? '',
               brand:       "A'Gold",
@@ -183,7 +183,7 @@ Deno.serve(async (req: Request) => {
               promoted:    false,
               min_qty:     1,
             })
-            created++
+            if (insErr) { console.error('Insert error', tp.id, insErr.message); errors++ } else created++
           }
         } catch (e) {
           console.error('Erro produto', tp.id, e)
