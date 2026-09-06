@@ -153,6 +153,14 @@ function renderStats() {
 function renderConfig() {
   document.getElementById('cfg_name').value = state.config.store_name || '';
   document.getElementById('cfg_wpp').value = state.config.whatsapp_number || '';
+  // Banner
+  document.getElementById('cfg_banner_enabled').checked = !!state.config.banner_enabled;
+  document.getElementById('cfg_banner_title').value = state.config.banner_title || '';
+  document.getElementById('cfg_banner_subtitle').value = state.config.banner_subtitle || '';
+  document.getElementById('cfg_banner_image').value = state.config.banner_image_url || '';
+  document.getElementById('cfg_banner_link').value = state.config.banner_link || '';
+  document.getElementById('cfg_banner_btn').value = state.config.banner_btn_text || '';
+  updateBannerPreview();
 }
 async function saveConfig() {
   var name = document.getElementById('cfg_name').value.trim();
@@ -162,6 +170,34 @@ async function saveConfig() {
   state.config.store_name = name;
   state.config.whatsapp_number = wpp;
   toast('Configurações salvas.');
+}
+async function saveBanner() {
+  var patch = {
+    banner_enabled:   document.getElementById('cfg_banner_enabled').checked,
+    banner_title:     document.getElementById('cfg_banner_title').value.trim(),
+    banner_subtitle:  document.getElementById('cfg_banner_subtitle').value.trim(),
+    banner_image_url: document.getElementById('cfg_banner_image').value.trim(),
+    banner_link:      document.getElementById('cfg_banner_link').value.trim(),
+    banner_btn_text:  document.getElementById('cfg_banner_btn').value.trim()
+  };
+  var res = await supabase.from('store_config').update(patch).eq('id', true);
+  if (res.error) { toast(friendlyError(res.error)); return; }
+  Object.assign(state.config, patch);
+  toast('Banner salvo.');
+}
+function updateBannerPreview() {
+  var title = document.getElementById('cfg_banner_title').value.trim();
+  var sub   = document.getElementById('cfg_banner_subtitle').value.trim();
+  var btn   = document.getElementById('cfg_banner_btn').value.trim() || 'Ver mais';
+  var link  = document.getElementById('cfg_banner_link').value.trim();
+  var prev  = document.getElementById('bannerPreview');
+  if (!prev) return;
+  if (!title && !sub) { prev.style.display = 'none'; return; }
+  prev.style.display = '';
+  document.getElementById('bpTitle').textContent = title;
+  document.getElementById('bpSub').textContent = sub;
+  document.getElementById('bpBtn').textContent = link ? btn : '';
+  document.getElementById('bpBtn').style.display = link ? '' : 'none';
 }
 
 /* ============================================================
@@ -296,6 +332,8 @@ function openProductModal(id) {
           '<input type="file" accept="image/*" id="f_image">' +
         '</div>' +
       '</div>' +
+      '<label class="checkbox-row"><input type="checkbox" id="f_promoted"' + (p && p.promoted ? ' checked' : '') + '> Destacar na vitrine (★)</label>' +
+      '<label class="checkbox-row"><input type="checkbox" id="f_show_price"' + (p && p.show_price === false ? '' : ' checked') + '> Exibir preço para o cliente no catálogo</label>' +
     '</div>' +
     '<div class="modal-tab-panel" data-panel="prices">' +
       '<div class="tiny-sync-banner">🔄 Preços e estoque serão sincronizados via API com o <strong>Tiny ERP</strong>.</div>' +
@@ -313,12 +351,8 @@ function openProductModal(id) {
       '<div class="field"><label>Código Tiny (ERP)</label><input type="text" id="f_tiny_code" value="' + escapeHtml(p ? p.tiny_code || '' : '') + '" placeholder="Preenchido automaticamente via API"></div>' +
       '<div class="field-row">' +
         '<div class="field"><label>Estoque (qtd.)</label><input type="number" min="0" step="1" id="f_stock_qty" value="' + (p && p.stock_qty !== null && p.stock_qty !== undefined ? p.stock_qty : '') + '" placeholder="Vazio = ilimitado"></div>' +
-        '<div class="field" style="justify-content:flex-end;gap:6px;">' +
-          '<label>Exibir preço no catálogo</label>' +
-          '<label class="checkbox-row"><input type="checkbox" id="f_show_price"' + (p && p.show_price === false ? '' : ' checked') + '> Mostrar preço para o cliente</label>' +
-        '</div>' +
+        '<div class="field"><label>Estoque reservado (inf.)</label><span style="font-size:12px;color:var(--ink-faint);padding-top:6px;">Use os checkboxes na aba Dados gerais</span></div>' +
       '</div>' +
-      '<label class="checkbox-row"><input type="checkbox" id="f_promoted"' + (p && p.promoted ? ' checked' : '') + '> Destacar na vitrine (★)</label>' +
     '</div>';
 
   var fileInput = document.getElementById('f_image');
@@ -513,6 +547,10 @@ async function init() {
   document.getElementById('logoutBtn').addEventListener('click', doLogout);
   document.getElementById('newProductBtn').addEventListener('click', function () { openProductModal(null); });
   document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
+  document.getElementById('saveBannerBtn').addEventListener('click', saveBanner);
+  ['cfg_banner_title','cfg_banner_subtitle','cfg_banner_link','cfg_banner_btn'].forEach(function(id) {
+    document.getElementById(id).addEventListener('input', updateBannerPreview);
+  });
   document.getElementById('tinySyncBtn').addEventListener('click', syncWithTiny);
   document.getElementById('closeProductModalBtn').addEventListener('click', closeProductModal);
   document.getElementById('cancelProductBtn').addEventListener('click', closeProductModal);

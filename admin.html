@@ -107,6 +107,39 @@
         </div>
       </div>
     </div>
+    <!-- Banner do catálogo -->
+    <div class="admin-section">
+      <div class="admin-section-head">
+        <h2>Banner do catálogo</h2>
+        <button class="btn btn-accent btn-sm" id="saveBannerBtn" type="button">Salvar banner</button>
+      </div>
+      <div class="admin-section-body">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <label class="checkbox-row" style="font-size:13px;font-weight:600;">
+            <input type="checkbox" id="cfg_banner_enabled"> Exibir banner no catálogo
+          </label>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Título do banner</label><input type="text" id="cfg_banner_title" placeholder="Ex: Novidades da semana!"></div>
+          <div class="field"><label>Subtítulo / texto complementar</label><input type="text" id="cfg_banner_subtitle" placeholder="Ex: Aproveite os melhores preços"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>URL da imagem de fundo (opcional)</label><input type="text" id="cfg_banner_image" placeholder="https://..."></div>
+          <div class="field"><label>Link do botão CTA (opcional)</label><input type="text" id="cfg_banner_link" placeholder="https://..."></div>
+        </div>
+        <div class="field"><label>Texto do botão CTA</label><input type="text" id="cfg_banner_btn" placeholder="Ver mais" style="max-width:240px;"></div>
+        <!-- Prévia -->
+        <div id="bannerPreview" style="margin-top:16px;border-radius:10px;overflow:hidden;display:none;">
+          <div style="background:var(--accent);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div>
+              <p id="bpTitle" style="margin:0;font-weight:700;font-size:15px;color:#fff;"></p>
+              <p id="bpSub" style="margin:3px 0 0;font-size:13px;color:rgba(255,255,255,.85);"></p>
+            </div>
+            <span id="bpBtn" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;font-size:13px;font-weight:600;padding:7px 16px;border-radius:999px;"></span>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- Sincronização Tiny ERP -->
     <div class="admin-section" id="tinySyncSection">
       <div class="admin-section-head">

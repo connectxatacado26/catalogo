@@ -492,8 +492,58 @@ async function loadProducts() {
 }
 async function loadConfig() {
   var res = await supabase.from('store_config').select('*').eq('id', true).single();
-  if (!res.error && res.data) state.config = res.data;
+  if (!res.error && res.data) {
+    state.config = res.data;
+    renderBanner(res.data);
+  }
 }
+
+function renderBanner(cfg) {
+  var el = document.getElementById('siteBanner');
+  if (!el) return;
+  if (sessionStorage.getItem('banner_dismissed') === '1') return;
+  if (!cfg || !cfg.banner_enabled) { el.style.display = 'none'; return; }
+
+  var title = cfg.banner_title || '';
+  var sub   = cfg.banner_subtitle || '';
+  var link  = cfg.banner_link || '';
+  var btn   = cfg.banner_btn_text || 'Ver mais';
+  var img   = cfg.banner_image_url || '';
+
+  document.getElementById('bannerTitle').textContent = title;
+  var subEl = document.getElementById('bannerSub');
+  subEl.textContent = sub;
+  subEl.style.display = sub ? '' : 'none';
+
+  var ctaEl = document.getElementById('bannerCta');
+  if (link) {
+    ctaEl.href = link;
+    ctaEl.textContent = btn;
+    ctaEl.style.display = '';
+  } else {
+    ctaEl.style.display = 'none';
+  }
+
+  if (img) {
+    el.classList.add('has-image');
+    el.style.backgroundImage = 'linear-gradient(135deg,rgba(0,0,0,.45),rgba(0,0,0,.2)), url(' + img + ')';
+  } else {
+    el.classList.remove('has-image');
+    el.style.backgroundImage = '';
+  }
+  el.style.display = '';
+}
+
+(function () {
+  var closeBtn = document.getElementById('bannerClose');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function () {
+      var el = document.getElementById('siteBanner');
+      if (el) el.style.display = 'none';
+      sessionStorage.setItem('banner_dismissed', '1');
+    });
+  }
+})();
 
 function subscribeRealtime() {
   supabase.channel('catalog-products')
