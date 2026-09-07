@@ -483,8 +483,8 @@ async function _createOrderAndRedirect(customer, phone, notes, items, customerFo
     renderCatalog();
 
     var wppNum = state.config.whatsapp_number || '';
-    var regUrl = (!customerFound && phone && wppNum)
-      ? 'https://wa.me/' + wppNum + '?text=' + encodeURIComponent('Olá! Gostaria de me cadastrar como cliente Connect X Atacado. Meu nome é ' + customer + ' e meu WhatsApp é ' + phone + '.')
+    var regUrl = (!customerFound && phone)
+      ? 'cadastro.html?nome=' + encodeURIComponent(customer) + '&celular=' + encodeURIComponent(phone)
       : null;
 
     // Monta mensagem formatada do pedido para WhatsApp
