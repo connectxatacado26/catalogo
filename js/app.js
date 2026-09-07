@@ -482,18 +482,46 @@ async function _createOrderAndRedirect(customer, phone, notes, items, customerFo
     renderCartCount();
     renderCatalog();
 
-    // Abre PDF em nova aba (com diálogo de impressão/salvar)
-    var regUrl = (!customerFound && phone && state.config.whatsapp_number)
-      ? 'https://wa.me/' + state.config.whatsapp_number + '?text=' + encodeURIComponent('Olá! Gostaria de me cadastrar como cliente Connect X Atacado. Meu nome é ' + customer + ' e meu WhatsApp é ' + phone + '.')
+    var wppNum = state.config.whatsapp_number || '';
+    var regUrl = (!customerFound && phone && wppNum)
+      ? 'https://wa.me/' + wppNum + '?text=' + encodeURIComponent('Olá! Gostaria de me cadastrar como cliente Connect X Atacado. Meu nome é ' + customer + ' e meu WhatsApp é ' + phone + '.')
       : null;
+
+    // Monta mensagem formatada do pedido para WhatsApp
+    var orderWppUrl = null;
+    if (wppNum) {
+      var now = new Date();
+      var dateStr = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      var itensMsg = items.map(function (it) {
+        return '  • ' + it.qty + 'x ' + it.name + (it.code ? ' (' + it.code + ')' : '');
+      }).join('\n');
+      var msg =
+        '📦 *PEDIDO - CONNECT X ATACADO*\n' +
+        '━━━━━━━━━━━━━━━━━━━\n' +
+        '👤 *Cliente:* ' + customer + '\n' +
+        (phone ? '📱 *WhatsApp:* ' + phone + '\n' : '') +
+        '🗓️ *Data:* ' + dateStr + '\n' +
+        '━━━━━━━━━━━━━━━━━━━\n' +
+        '🛒 *ITENS DO PEDIDO:*\n' +
+        itensMsg + '\n' +
+        '━━━━━━━━━━━━━━━━━━━\n' +
+        (notes ? '📝 *Observações:* ' + notes + '\n' : '') +
+        '_Preços e disponibilidade serão confirmados pela nossa equipe._';
+      orderWppUrl = 'https://wa.me/' + wppNum + '?text=' + encodeURIComponent(msg);
+    }
 
     document.getElementById('checkoutModalBody').innerHTML =
       '<div style="text-align:center;padding:12px 0 8px;">' +
         '<div style="font-size:44px;margin-bottom:10px;">✅</div>' +
         '<h3 style="margin:0 0 8px;font-family:\'Fraunces\',serif;color:var(--ink);">Pedido recebido!</h3>' +
         '<p style="font-size:14px;color:var(--ink-soft);margin:0 0 12px;line-height:1.5;">' +
-          'Seu pedido foi registrado com sucesso. Nossa equipe irá processá-lo e entrar em contato via WhatsApp em breve.' +
+          'Seu pedido foi registrado. Clique abaixo para enviá-lo pelo WhatsApp e nossa equipe confirmará em breve.' +
         '</p>' +
+        (orderWppUrl
+          ? '<a href="' + orderWppUrl + '" target="_blank" rel="noopener" ' +
+            'style="display:inline-flex;align-items:center;gap:8px;background:#25d366;color:#fff;padding:12px 24px;border-radius:10px;font-weight:700;font-size:15px;text-decoration:none;margin-bottom:16px;">' +
+            '📲 Enviar pedido pelo WhatsApp</a>'
+          : '') +
         (!customerFound && phone && regUrl
           ? '<div style="margin-top:16px;padding:14px;background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;font-size:13px;color:#92400e;text-align:left;">' +
               '<strong>Falta só uma coisinha! 😊</strong><br><br>' +
