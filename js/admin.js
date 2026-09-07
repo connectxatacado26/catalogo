@@ -553,38 +553,25 @@ function closeDetailModal() {
   _detailPrintFn = null;
 }
 function printDetail(title, html) {
-  var w = window.open('', '_blank', 'width=720,height=900');
-  if (!w) { toast('Permita pop-ups para imprimir.'); return; }
-  w.document.write(
-    '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>' + title + '</title>' +
-    '<style>' +
-      'body{font-family:Arial,sans-serif;font-size:13px;color:#0f172a;padding:30px;max-width:640px;margin:0 auto;}' +
-      'h1{font-size:18px;margin:0 0 4px;}' +
-      '.sub{font-size:11px;color:#64748b;margin-bottom:20px;}' +
-      '.label{font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:2px;}' +
-      '.val{font-size:13px;margin-bottom:10px;}' +
-      '.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 20px;}' +
-      'table{width:100%;border-collapse:collapse;margin:10px 0;}' +
-      'th{text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;border-bottom:2px solid #e2e8f0;padding:4px 0;}' +
-      'td{padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px;}' +
-      '.total-row td{font-weight:700;border-bottom:none;padding-top:10px;}' +
-      'hr{border:none;border-top:1px solid #e2e8f0;margin:16px 0;}' +
-      '.footer{font-size:11px;color:#94a3b8;margin-top:20px;text-align:center;}' +
-      '@media print{@page{margin:15mm;}}' +
-    '</style></head><body>' +
+  var area = document.getElementById('printArea');
+  area.innerHTML =
     '<h1>' + title + '</h1>' +
-    '<div class="sub">Connect X Atacado · Impresso em ' + new Date().toLocaleString('pt-BR') + '</div>' +
+    '<div class="psub">Connect X Atacado · Impresso em ' + new Date().toLocaleString('pt-BR') + '</div>' +
     '<hr>' + html +
-    '<div class="footer">Connect X Atacado — Documento gerado automaticamente</div>' +
-    '</body></html>'
-  );
-  w.document.close();
-  w.focus();
-  setTimeout(function () { w.print(); }, 400);
+    '<div class="pfooter">Connect X Atacado — Documento gerado automaticamente</div>';
+  window.print();
+  setTimeout(function () { area.innerHTML = ''; }, 1000);
 }
 
 function openOrderDetail(o) {
   markOrderViewed(o.id);
+  // Remove ponto e classe de não lido imediatamente no DOM
+  var row = document.querySelector('.order-row[data-order-id="' + o.id + '"]');
+  if (row) {
+    row.classList.remove('order-unread');
+    var dot = row.querySelector('span[title="Não aberto"]');
+    if (dot) dot.remove();
+  }
   var itemsHtml = (o.items || []).map(function (it) {
     var unitTotal = (it.price || 0) * (it.qty || 1);
     return '<tr>' +
@@ -617,20 +604,20 @@ function openOrderDetail(o) {
     (o.notes ? '<div style="margin-top:14px;padding:10px 14px;background:var(--paper-2,#f8fafc);border-radius:8px;font-size:13px;"><strong>Obs:</strong> ' + escapeHtml(o.notes) + '</div>' : '');
 
   var printHtml =
-    '<div class="grid">' +
-      '<div><div class="label">Cliente</div><div class="val">' + (o.customer_name || '—') + '</div></div>' +
-      '<div><div class="label">WhatsApp</div><div class="val">' + (o.customer_phone || '—') + '</div></div>' +
-      '<div><div class="label">Data</div><div class="val">' + new Date(o.created_at).toLocaleString('pt-BR') + '</div></div>' +
-      '<div><div class="label">Status</div><div class="val">' + statusLabel(o.status) + '</div></div>' +
+    '<div class="pgrid">' +
+      '<div><div class="plabel">Cliente</div><div class="pval">' + (o.customer_name || '—') + '</div></div>' +
+      '<div><div class="plabel">WhatsApp</div><div class="pval">' + (o.customer_phone || '—') + '</div></div>' +
+      '<div><div class="plabel">Data</div><div class="pval">' + new Date(o.created_at).toLocaleString('pt-BR') + '</div></div>' +
+      '<div><div class="plabel">Status</div><div class="pval">' + statusLabel(o.status) + '</div></div>' +
     '</div>' +
     '<hr>' +
     '<table><thead><tr><th>Qtd</th><th>Produto</th><th style="text-align:right;">Valor</th></tr></thead><tbody>' +
     (o.items || []).map(function (it) {
       return '<tr><td>' + (it.qty || 1) + 'x</td><td>' + (it.name || '') + (it.code ? ' (' + it.code + ')' : '') + '</td><td style="text-align:right;">' + ((it.price && it.qty) ? fmtBRL(it.price * it.qty) : '—') + '</td></tr>';
     }).join('') +
-    '<tr class="total-row"><td colspan="2">Total estimado</td><td style="text-align:right;">' + fmtBRL(o.total) + '</td></tr>' +
+    '<tr class="ptotal"><td colspan="2">Total estimado</td><td style="text-align:right;">' + fmtBRL(o.total) + '</td></tr>' +
     '</tbody></table>' +
-    (o.notes ? '<hr><div class="label">Observações</div><div class="val">' + o.notes + '</div>' : '');
+    (o.notes ? '<hr><div class="plabel">Observações</div><div class="pval">' + o.notes + '</div>' : '');
 
   openDetailModal('Pedido — ' + (o.customer_name || ''), bodyHtml, function () {
     printDetail('Pedido — ' + (o.customer_name || ''), printHtml);
@@ -639,6 +626,12 @@ function openOrderDetail(o) {
 
 function openCadastroDetail(c) {
   markCadastroViewed(c.id);
+  // Remove ponto imediatamente no DOM
+  var row = document.querySelector('[data-cad-id="' + c.id + '"]');
+  if (row) {
+    var dot = row.querySelector('span[title="Não aberto"]');
+    if (dot) dot.remove();
+  }
   var tipo = c.tipo_pessoa === 'J' ? 'Pessoa Jurídica' : 'Pessoa Física';
   var endParts = [c.endereco, c.numero ? 'nº ' + c.numero : '', c.complemento, c.bairro].filter(Boolean).join(', ');
   var cidadeUf = [c.cidade, c.uf].filter(Boolean).join('/');
@@ -669,16 +662,16 @@ function openCadastroDetail(c) {
     '</div>';
 
   function pField(label, val) {
-    return val ? '<div class="label">' + label + '</div><div class="val">' + val + '</div>' : '';
+    return val ? '<div class="plabel">' + label + '</div><div class="pval">' + val + '</div>' : '';
   }
   var printHtml =
-    '<div class="grid">' +
+    '<div class="pgrid">' +
       pField('Tipo', tipo) + pField('Data', new Date(c.created_at).toLocaleString('pt-BR')) +
       pField('Nome / Razão Social', c.nome) + pField('CNPJ/CPF', c.cpf_cnpj) +
       pField(c.tipo_pessoa === 'J' ? 'Inscrição Estadual' : 'RG', c.ie_rg) +
       pField('Status', c.status === 'importado' ? 'Importado' : 'Pendente') +
     '</div><hr>' +
-    '<div class="grid">' +
+    '<div class="pgrid">' +
       pField('E-mail', c.email) + pField('Telefone', c.fone) + pField('WhatsApp/Celular', c.celular) +
     '</div>' +
     (endFull ? '<hr>' + pField('Endereço', endFull) : '') +

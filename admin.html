@@ -104,6 +104,24 @@
 /* ===== Nav badges ===== */
 .nav-badge{margin-left:auto;background:#ef4444;color:#fff;font-size:10px;font-weight:700;min-width:18px;height:18px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;transition:opacity .2s;}
 .nav-badge:empty{display:none;}
+
+/* ===== Impressão ===== */
+#printArea{display:none;}
+@media print{
+  body>*:not(#printArea){display:none!important;}
+  #printArea{display:block!important;padding:24px;font-family:Arial,sans-serif;font-size:13px;color:#0f172a;}
+  #printArea h1{font-size:18px;margin:0 0 4px;}
+  #printArea .psub{font-size:11px;color:#64748b;margin-bottom:16px;}
+  #printArea .plabel{font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:2px;}
+  #printArea .pval{font-size:13px;margin-bottom:10px;}
+  #printArea .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 20px;}
+  #printArea table{width:100%;border-collapse:collapse;margin:10px 0;}
+  #printArea th{text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;border-bottom:2px solid #e2e8f0;padding:4px 0;}
+  #printArea td{padding:6px 0;border-bottom:1px solid #e2e8f0;}
+  #printArea .ptotal td{font-weight:700;border-bottom:none;padding-top:10px;}
+  #printArea hr{border:none;border-top:1px solid #e2e8f0;margin:14px 0;}
+  #printArea .pfooter{font-size:11px;color:#94a3b8;margin-top:20px;text-align:center;}
+}
 </style>
 </head>
 <body style="background:var(--paper);margin:0;">
@@ -441,6 +459,7 @@
   </div>
 </div>
 
+<div id="printArea"></div>
 <div id="toastHost"></div>
 <script src="js/config.js"></script>
 <script type="module" src="js/admin.js"></script>
