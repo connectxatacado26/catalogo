@@ -12,6 +12,29 @@ var state = {
 };
 var editingId = null;
 
+// Rastreamento de itens já abertos (não lidos = badge vermelho)
+var viewedOrders   = new Set(JSON.parse(localStorage.getItem('cx_viewed_orders')   || '[]'));
+var viewedCadastros = new Set(JSON.parse(localStorage.getItem('cx_viewed_cadastros') || '[]'));
+
+function markOrderViewed(id) {
+  viewedOrders.add(id);
+  localStorage.setItem('cx_viewed_orders', JSON.stringify([...viewedOrders]));
+  updateNavBadges();
+}
+function markCadastroViewed(id) {
+  viewedCadastros.add(id);
+  localStorage.setItem('cx_viewed_cadastros', JSON.stringify([...viewedCadastros]));
+  updateNavBadges();
+}
+function updateNavBadges() {
+  var unreadO = state.orders.filter(function (o) { return !viewedOrders.has(o.id); }).length;
+  var unreadC = state.cadastros.filter(function (c) { return !viewedCadastros.has(c.id); }).length;
+  var bO = document.getElementById('badgeOrders');
+  var bC = document.getElementById('badgeCadastros');
+  if (bO) bO.textContent = unreadO || '';
+  if (bC) bC.textContent = unreadC || '';
+}
+
 /* ============================================================
    Utilidades
    ============================================================ */
@@ -469,18 +492,23 @@ function renderOrders() {
   countEl.textContent = state.orders.length;
   if (!state.orders.length) {
     host.innerHTML = '<div class="admin-section-body" style="color:var(--ink-soft);font-size:14px;">Nenhum pedido registrado ainda.</div>';
+    updateNavBadges();
     return;
   }
   var statuses = ['aguardando', 'confirmado', 'enviado', 'cancelado'];
   var rows = state.orders.map(function (o) {
+    var isNew = !viewedOrders.has(o.id);
     var itemsSummary = (o.items || []).map(function (it) { return it.qty + 'x ' + it.name; }).join(', ');
     var options = statuses.map(function (s) {
       return '<option value="' + s + '"' + (o.status === s ? ' selected' : '') + '>' + statusLabel(s) + '</option>';
     }).join('');
     return (
-      '<div class="order-row">' +
+      '<div class="order-row' + (isNew ? ' order-unread' : '') + '" data-order-id="' + escapeHtml(o.id) + '">' +
         '<div>' +
-          '<div class="oname">' + escapeHtml(o.customer_name) + (o.customer_phone ? ' · ' + escapeHtml(o.customer_phone) : '') + '</div>' +
+          '<div class="oname">' +
+            (isNew ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6366f1;flex-shrink:0;" title="Não aberto"></span>' : '') +
+            escapeHtml(o.customer_name) + (o.customer_phone ? ' · ' + escapeHtml(o.customer_phone) : '') +
+          '</div>' +
           '<div class="ometa">' + escapeHtml(itemsSummary) + ' · ' + new Date(o.created_at).toLocaleString('pt-BR') + '</div>' +
         '</div>' +
         '<div class="order-price">' + fmtBRL(o.total) + '</div>' +
@@ -489,6 +517,14 @@ function renderOrders() {
     );
   }).join('');
   host.innerHTML = rows;
+  Array.prototype.forEach.call(host.querySelectorAll('.order-row'), function (row) {
+    row.addEventListener('click', function (e) {
+      if (e.target.tagName === 'SELECT' || e.target.tagName === 'OPTION') return;
+      var id = row.getAttribute('data-order-id');
+      var o = state.orders.find(function (x) { return x.id === id; });
+      if (o) openOrderDetail(o);
+    });
+  });
   Array.prototype.forEach.call(host.querySelectorAll('[data-order-status]'), function (sel) {
     sel.addEventListener('change', async function () {
       var id = sel.getAttribute('data-order-status');
@@ -497,6 +533,159 @@ function renderOrders() {
       toast('Status atualizado.');
       await loadOrders();
     });
+  });
+  updateNavBadges();
+}
+
+/* ============================================================
+   Detalhe de pedido / cadastro — modal + impressão
+   ============================================================ */
+var _detailPrintFn = null;
+
+function openDetailModal(title, bodyHtml, printFn) {
+  document.getElementById('detailModalTitle').textContent = title;
+  document.getElementById('detailModalBody').innerHTML = bodyHtml;
+  _detailPrintFn = printFn || null;
+  document.getElementById('detailModalOverlay').classList.add('open');
+}
+function closeDetailModal() {
+  document.getElementById('detailModalOverlay').classList.remove('open');
+  _detailPrintFn = null;
+}
+function printDetail(title, html) {
+  var w = window.open('', '_blank', 'width=720,height=900');
+  if (!w) { toast('Permita pop-ups para imprimir.'); return; }
+  w.document.write(
+    '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>' + title + '</title>' +
+    '<style>' +
+      'body{font-family:Arial,sans-serif;font-size:13px;color:#0f172a;padding:30px;max-width:640px;margin:0 auto;}' +
+      'h1{font-size:18px;margin:0 0 4px;}' +
+      '.sub{font-size:11px;color:#64748b;margin-bottom:20px;}' +
+      '.label{font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:2px;}' +
+      '.val{font-size:13px;margin-bottom:10px;}' +
+      '.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 20px;}' +
+      'table{width:100%;border-collapse:collapse;margin:10px 0;}' +
+      'th{text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;border-bottom:2px solid #e2e8f0;padding:4px 0;}' +
+      'td{padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:13px;}' +
+      '.total-row td{font-weight:700;border-bottom:none;padding-top:10px;}' +
+      'hr{border:none;border-top:1px solid #e2e8f0;margin:16px 0;}' +
+      '.footer{font-size:11px;color:#94a3b8;margin-top:20px;text-align:center;}' +
+      '@media print{@page{margin:15mm;}}' +
+    '</style></head><body>' +
+    '<h1>' + title + '</h1>' +
+    '<div class="sub">Connect X Atacado · Impresso em ' + new Date().toLocaleString('pt-BR') + '</div>' +
+    '<hr>' + html +
+    '<div class="footer">Connect X Atacado — Documento gerado automaticamente</div>' +
+    '</body></html>'
+  );
+  w.document.close();
+  w.focus();
+  setTimeout(function () { w.print(); }, 400);
+}
+
+function openOrderDetail(o) {
+  markOrderViewed(o.id);
+  var itemsHtml = (o.items || []).map(function (it) {
+    var unitTotal = (it.price || 0) * (it.qty || 1);
+    return '<tr>' +
+      '<td>' + escapeHtml(String(it.qty || 1)) + 'x</td>' +
+      '<td>' + escapeHtml(it.name || '') + (it.code ? ' <span style="color:var(--ink-soft);font-size:12px;">(' + escapeHtml(it.code) + ')</span>' : '') + '</td>' +
+      '<td style="text-align:right;font-family:\'IBM Plex Mono\',monospace;font-size:12px;">' + (unitTotal ? fmtBRL(unitTotal) : '—') + '</td>' +
+    '</tr>';
+  }).join('');
+  var bodyHtml =
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;margin-bottom:16px;">' +
+      '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);">Cliente</div><div style="font-weight:600;">' + escapeHtml(o.customer_name || '—') + '</div></div>' +
+      '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);">WhatsApp</div><div>' + escapeHtml(o.customer_phone || '—') + '</div></div>' +
+      '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);">Data</div><div>' + new Date(o.created_at).toLocaleString('pt-BR') + '</div></div>' +
+      '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);">Status</div><div>' + statusLabel(o.status) + '</div></div>' +
+    '</div>' +
+    '<div style="border-top:1px solid var(--line);padding-top:14px;">' +
+      '<div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px;">Itens do pedido</div>' +
+      '<table style="width:100%;border-collapse:collapse;">' +
+        '<thead><tr>' +
+          '<th style="text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);border-bottom:1px solid var(--line);padding-bottom:6px;width:40px;">Qtd</th>' +
+          '<th style="text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);border-bottom:1px solid var(--line);padding-bottom:6px;">Produto</th>' +
+          '<th style="text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);border-bottom:1px solid var(--line);padding-bottom:6px;">Valor</th>' +
+        '</tr></thead>' +
+        '<tbody>' + itemsHtml + '</tbody>' +
+      '</table>' +
+      '<div style="display:flex;justify-content:space-between;font-weight:700;padding-top:10px;border-top:1px solid var(--line);margin-top:2px;">' +
+        '<span>Total estimado</span><span style="font-family:\'IBM Plex Mono\',monospace;">' + fmtBRL(o.total) + '</span>' +
+      '</div>' +
+    '</div>' +
+    (o.notes ? '<div style="margin-top:14px;padding:10px 14px;background:var(--paper-2,#f8fafc);border-radius:8px;font-size:13px;"><strong>Obs:</strong> ' + escapeHtml(o.notes) + '</div>' : '');
+
+  var printHtml =
+    '<div class="grid">' +
+      '<div><div class="label">Cliente</div><div class="val">' + (o.customer_name || '—') + '</div></div>' +
+      '<div><div class="label">WhatsApp</div><div class="val">' + (o.customer_phone || '—') + '</div></div>' +
+      '<div><div class="label">Data</div><div class="val">' + new Date(o.created_at).toLocaleString('pt-BR') + '</div></div>' +
+      '<div><div class="label">Status</div><div class="val">' + statusLabel(o.status) + '</div></div>' +
+    '</div>' +
+    '<hr>' +
+    '<table><thead><tr><th>Qtd</th><th>Produto</th><th style="text-align:right;">Valor</th></tr></thead><tbody>' +
+    (o.items || []).map(function (it) {
+      return '<tr><td>' + (it.qty || 1) + 'x</td><td>' + (it.name || '') + (it.code ? ' (' + it.code + ')' : '') + '</td><td style="text-align:right;">' + ((it.price && it.qty) ? fmtBRL(it.price * it.qty) : '—') + '</td></tr>';
+    }).join('') +
+    '<tr class="total-row"><td colspan="2">Total estimado</td><td style="text-align:right;">' + fmtBRL(o.total) + '</td></tr>' +
+    '</tbody></table>' +
+    (o.notes ? '<hr><div class="label">Observações</div><div class="val">' + o.notes + '</div>' : '');
+
+  openDetailModal('Pedido — ' + (o.customer_name || ''), bodyHtml, function () {
+    printDetail('Pedido — ' + (o.customer_name || ''), printHtml);
+  });
+}
+
+function openCadastroDetail(c) {
+  markCadastroViewed(c.id);
+  var tipo = c.tipo_pessoa === 'J' ? 'Pessoa Jurídica' : 'Pessoa Física';
+  var endParts = [c.endereco, c.numero ? 'nº ' + c.numero : '', c.complemento, c.bairro].filter(Boolean).join(', ');
+  var cidadeUf = [c.cidade, c.uf].filter(Boolean).join('/');
+  var endFull = [endParts, cidadeUf, c.cep ? 'CEP ' + c.cep : ''].filter(Boolean).join(' — ');
+
+  function field(label, val) {
+    if (!val) return '';
+    return '<div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);">' + label + '</div>' +
+      '<div style="font-size:13px;">' + escapeHtml(val) + '</div></div>';
+  }
+  var bodyHtml =
+    '<div style="display:flex;flex-direction:column;gap:12px;">' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;">' +
+        field('Tipo', tipo) +
+        field('Data', new Date(c.created_at).toLocaleString('pt-BR')) +
+        field('Nome / Razão Social', c.nome) +
+        field('CNPJ / CPF', c.cpf_cnpj) +
+        field(c.tipo_pessoa === 'J' ? 'Inscrição Estadual' : 'RG', c.ie_rg) +
+        field('Status', c.status === 'importado' ? '✅ Importado' : '⏳ Pendente') +
+      '</div>' +
+      '<div style="border-top:1px solid var(--line);padding-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;">' +
+        field('E-mail', c.email) +
+        field('Telefone', c.fone) +
+        field('WhatsApp / Celular', c.celular) +
+      '</div>' +
+      (endFull ? '<div style="border-top:1px solid var(--line);padding-top:12px;">' + field('Endereço', endFull) + '</div>' : '') +
+      (c.obs ? '<div style="border-top:1px solid var(--line);padding-top:12px;">' + field('Observações', c.obs) + '</div>' : '') +
+    '</div>';
+
+  function pField(label, val) {
+    return val ? '<div class="label">' + label + '</div><div class="val">' + val + '</div>' : '';
+  }
+  var printHtml =
+    '<div class="grid">' +
+      pField('Tipo', tipo) + pField('Data', new Date(c.created_at).toLocaleString('pt-BR')) +
+      pField('Nome / Razão Social', c.nome) + pField('CNPJ/CPF', c.cpf_cnpj) +
+      pField(c.tipo_pessoa === 'J' ? 'Inscrição Estadual' : 'RG', c.ie_rg) +
+      pField('Status', c.status === 'importado' ? 'Importado' : 'Pendente') +
+    '</div><hr>' +
+    '<div class="grid">' +
+      pField('E-mail', c.email) + pField('Telefone', c.fone) + pField('WhatsApp/Celular', c.celular) +
+    '</div>' +
+    (endFull ? '<hr>' + pField('Endereço', endFull) : '') +
+    (c.obs ? '<hr>' + pField('Observações', c.obs) : '');
+
+  openDetailModal('Cadastro — ' + (c.nome || ''), bodyHtml, function () {
+    printDetail('Ficha de Cadastro — ' + (c.nome || ''), printHtml);
   });
 }
 
@@ -833,15 +1022,18 @@ function renderCadastros() {
     return;
   }
   host.innerHTML = list.map(function (c) {
+    var isNew = !viewedCadastros.has(c.id);
     var tipoBadge = c.tipo_pessoa === 'J'
       ? '<span style="background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;">PJ</span>'
       : '<span style="background:#dcfce7;color:#166534;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;">PF</span>';
     var statusBadge = c.status === 'importado'
       ? '<span style="background:#dcfce7;color:#166534;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;">✓ Importado</span>'
       : '<span style="background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;">Pendente</span>';
-    return '<div style="display:grid;grid-template-columns:1fr auto;gap:14px;align-items:start;padding:14px 20px;border-bottom:1px solid var(--line);">' +
+    return '<div data-cad-id="' + escapeHtml(c.id) + '" style="display:grid;grid-template-columns:1fr auto;gap:14px;align-items:start;padding:14px 20px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s;"' +
+        ' onmouseenter="this.style.background=\'var(--paper-2,#f8fafc)\'" onmouseleave="this.style.background=\'\'">' +
       '<div>' +
         '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px;">' +
+          (isNew ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6366f1;flex-shrink:0;" title="Não aberto"></span>' : '') +
           tipoBadge + ' ' + statusBadge +
           '<span style="font-weight:600;font-size:14px;color:var(--ink);">' + escapeHtml(c.nome || '') + '</span>' +
           (c.cpf_cnpj ? '<span style="font-size:12px;color:var(--ink-soft);">· ' + escapeHtml(c.cpf_cnpj) + '</span>' : '') +
@@ -853,7 +1045,6 @@ function renderCadastros() {
           (c.cidade && c.uf ? '<span>📍 ' + escapeHtml(c.cidade) + '/' + escapeHtml(c.uf) + '</span>' : '') +
           '<span>' + new Date(c.created_at).toLocaleString('pt-BR') + '</span>' +
         '</div>' +
-        (c.obs ? '<div style="font-size:12px;color:var(--ink-soft);margin-top:5px;font-style:italic;">📝 ' + escapeHtml(c.obs) + '</div>' : '') +
       '</div>' +
       '<button type="button" data-cad-toggle="' + escapeHtml(c.id) + '" data-cad-status="' + escapeHtml(c.status) + '" ' +
         'style="font-size:12px;padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer;white-space:nowrap;">' +
@@ -861,8 +1052,17 @@ function renderCadastros() {
       '</button>' +
     '</div>';
   }).join('');
+  host.querySelectorAll('[data-cad-id]').forEach(function (row) {
+    row.addEventListener('click', function (e) {
+      if (e.target.tagName === 'BUTTON') return;
+      var id = row.getAttribute('data-cad-id');
+      var c = state.cadastros.find(function (x) { return x.id === id; });
+      if (c) openCadastroDetail(c);
+    });
+  });
   host.querySelectorAll('[data-cad-toggle]').forEach(function (btn) {
-    btn.addEventListener('click', async function () {
+    btn.addEventListener('click', async function (e) {
+      e.stopPropagation();
       var id = this.getAttribute('data-cad-toggle');
       var cur = this.getAttribute('data-cad-status');
       var next = cur === 'importado' ? 'pendente' : 'importado';
@@ -872,6 +1072,7 @@ function renderCadastros() {
       await loadCadastros();
     });
   });
+  updateNavBadges();
 }
 
 function downloadCadastrosCSV() {
@@ -1108,6 +1309,13 @@ async function init() {
   document.getElementById('tinySyncBtn').addEventListener('click', syncWithTiny);
   document.getElementById('downloadCadastrosBtn').addEventListener('click', downloadCadastrosCSV);
   document.getElementById('cadastroStatusFilter').addEventListener('change', renderCadastros);
+  document.getElementById('closeDetailModalBtn').addEventListener('click', closeDetailModal);
+  document.getElementById('detailModalOverlay').addEventListener('click', function (e) {
+    if (e.target === this) closeDetailModal();
+  });
+  document.getElementById('printDetailBtn').addEventListener('click', function () {
+    if (_detailPrintFn) _detailPrintFn();
+  });
   document.getElementById('closeProductModalBtn').addEventListener('click', closeProductModal);
   document.getElementById('cancelProductBtn').addEventListener('click', closeProductModal);
   document.getElementById('saveProductBtn').addEventListener('click', saveProductFromModal);
