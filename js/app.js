@@ -496,10 +496,10 @@ async function _createOrderAndRedirect(customer, phone, notes, items, customerFo
         '</p>' +
         (!customerFound && phone && regUrl
           ? '<div style="margin-top:16px;padding:14px;background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;font-size:13px;color:#92400e;text-align:left;">' +
-              '<strong>👋 Você ainda não possui cadastro!</strong><br>' +
-              'Enquanto nossa equipe analisa seu pedido, preencha nossa ficha rapidinho para receber ofertas exclusivas.' +
+              '<strong>Falta só uma coisinha! 😊</strong><br><br>' +
+              'Identificamos que você ainda não possui cadastro conosco. Enquanto nossa equipe analisa seu pedido, preencha sua ficha rapidinho e fique por dentro de ofertas e condições exclusivas.' +
               '<br><br><a href="' + regUrl + '" target="_blank" rel="noopener" ' +
-              'style="display:inline-block;background:#f59e0b;color:#fff;padding:8px 18px;border-radius:8px;font-weight:700;font-size:13px;text-decoration:none;">📋 Preencher ficha agora</a>' +
+              'style="display:inline-block;background:#f59e0b;color:#fff;padding:8px 18px;border-radius:8px;font-weight:700;font-size:13px;text-decoration:none;">👉 Complete seu cadastro agora!</a>' +
             '</div>'
           : '') +
       '</div>';
