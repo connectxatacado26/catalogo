@@ -167,6 +167,9 @@
       <button class="nav-item" data-panel="orders">
         <span class="nav-icon">🛒</span> Pedidos
       </button>
+      <button class="nav-item" data-panel="cadastros">
+        <span class="nav-icon">📋</span> Cadastros
+      </button>
 
       <span class="sidebar-section-label">Sistema</span>
       <button class="nav-item" data-panel="config">
@@ -294,6 +297,28 @@
               <div class="field"><label>Nome da loja</label><input type="text" id="cfg_name"></div>
               <div class="field"><label>WhatsApp para pedidos</label><input type="tel" id="cfg_wpp" placeholder="55DDDNUMERO (só números)"></div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cadastros -->
+      <div id="panel-cadastros" class="admin-panel">
+        <p class="panel-title">Cadastros de Clientes</p>
+        <div class="admin-section">
+          <div class="admin-section-head">
+            <h2>Fichas de cadastro</h2>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <select id="cadastroStatusFilter" style="padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);color:var(--ink);font-size:13px;cursor:pointer;">
+                <option value="">Todos</option>
+                <option value="pendente">Pendentes</option>
+                <option value="importado">Importados</option>
+              </select>
+              <span class="count" id="cadastrosCount">0</span>
+              <button class="btn btn-ghost btn-sm" id="downloadCadastrosBtn" type="button">⬇️ Exportar CSV (Tiny)</button>
+            </div>
+          </div>
+          <div id="cadastrosAdminList">
+            <div class="admin-section-body" style="color:var(--ink-soft);font-size:14px;">Carregando…</div>
           </div>
         </div>
       </div>

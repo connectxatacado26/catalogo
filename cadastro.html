@@ -504,19 +504,42 @@
     };
 
     try {
-      var url = (cfg.SUPABASE_URL || '') + '/functions/v1/register-customer';
+      // 1. Salva no Supabase (sempre — garante que nunca perdemos o lead)
+      var supabaseUrl = (cfg.SUPABASE_URL || '').replace(/\/$/, '');
+      var anonKey    = cfg.SUPABASE_ANON_KEY || '';
+      var savedLocally = false;
+      if (supabaseUrl && anonKey) {
+        try {
+          var sbRes = await fetch(supabaseUrl + '/rest/v1/cadastros', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': anonKey,
+              'Prefer': 'return=minimal',
+            },
+            body: JSON.stringify(payload),
+          });
+          savedLocally = sbRes.ok || sbRes.status === 201;
+        } catch (sbErr) {
+          console.warn('[cadastro] falha ao salvar no Supabase:', sbErr);
+        }
+      }
+
+      // 2. Envia ao Tiny ERP via Edge Function
+      var url = supabaseUrl + '/functions/v1/register-customer';
       var res = await fetch(url, {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': cfg.SUPABASE_ANON_KEY || '' },
+        headers: { 'Content-Type': 'application/json', 'apikey': anonKey },
         body:    JSON.stringify(payload),
       });
       var data = await res.json();
 
-      if (data.ok) {
+      if (data.ok || savedLocally) {
         document.getElementById('feedbackBox').className = 'feedback success';
         document.getElementById('feedbackBox').innerHTML =
           '✅ <strong>Cadastro enviado com sucesso!</strong><br>' +
-          'Nossa equipe irá analisar e entrar em contato via WhatsApp em breve.';
+          'Nossa equipe irá analisar e entrar em contato via WhatsApp em breve.' +
+          (!data.ok ? '<br><small style="opacity:.8;">Salvo localmente; sincronização com Tiny em breve.</small>' : '');
         document.getElementById('cadastroForm').reset();
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {

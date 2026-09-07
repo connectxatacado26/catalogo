@@ -6,6 +6,7 @@ var state = {
   banners: [],
   categories: [],
   brands: [],
+  cadastros: [],
   config: { store_name: 'Connect X Atacado', whatsapp_number: '' },
   session: null
 };
@@ -792,7 +793,7 @@ async function loadOrders() {
   if (state.session) { renderStats(); renderOrders(); }
 }
 async function loadAll() {
-  await Promise.all([loadProducts(), loadConfig(), loadOrders(), loadBanners(), loadCategories(), loadBrands()]);
+  await Promise.all([loadProducts(), loadConfig(), loadOrders(), loadBanners(), loadCategories(), loadBrands(), loadCadastros()]);
 }
 
 /* ============================================================
@@ -805,6 +806,104 @@ function subscribeRealtime() {
   supabase.channel('admin-banners').on('postgres_changes', { event: '*', schema: 'public', table: 'banners' }, function () { loadBanners(); }).subscribe();
   supabase.channel('admin-categories').on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, function () { loadCategories(); }).subscribe();
   supabase.channel('admin-brands').on('postgres_changes', { event: '*', schema: 'public', table: 'brands' }, function () { loadBrands(); }).subscribe();
+  supabase.channel('admin-cadastros').on('postgres_changes', { event: '*', schema: 'public', table: 'cadastros' }, function () { loadCadastros(); }).subscribe();
+}
+
+/* ============================================================
+   Cadastros de clientes
+   ============================================================ */
+async function loadCadastros() {
+  var res = await supabase.from('cadastros').select('*').order('created_at', { ascending: false }).limit(500);
+  if (!res.error) state.cadastros = res.data || [];
+  renderCadastros();
+}
+
+function renderCadastros() {
+  var host = document.getElementById('cadastrosAdminList');
+  if (!host) return;
+  var filterSel = document.getElementById('cadastroStatusFilter');
+  var filterVal = filterSel ? filterSel.value : '';
+  var list = state.cadastros.filter(function (c) { return !filterVal || c.status === filterVal; });
+  var countEl = document.getElementById('cadastrosCount');
+  if (countEl) countEl.textContent = list.length;
+  if (!list.length) {
+    host.innerHTML = '<div class="admin-section-body" style="color:var(--ink-soft);font-size:14px;">' +
+      (filterVal ? 'Nenhum cadastro com esse filtro.' : 'Nenhuma ficha de cadastro recebida ainda. Quando um cliente preencher o formulário, aparecerá aqui.') +
+      '</div>';
+    return;
+  }
+  host.innerHTML = list.map(function (c) {
+    var tipoBadge = c.tipo_pessoa === 'J'
+      ? '<span style="background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;">PJ</span>'
+      : '<span style="background:#dcfce7;color:#166534;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;">PF</span>';
+    var statusBadge = c.status === 'importado'
+      ? '<span style="background:#dcfce7;color:#166534;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;">✓ Importado</span>'
+      : '<span style="background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;">Pendente</span>';
+    return '<div style="display:grid;grid-template-columns:1fr auto;gap:14px;align-items:start;padding:14px 20px;border-bottom:1px solid var(--line);">' +
+      '<div>' +
+        '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:5px;">' +
+          tipoBadge + ' ' + statusBadge +
+          '<span style="font-weight:600;font-size:14px;color:var(--ink);">' + escapeHtml(c.nome || '') + '</span>' +
+          (c.cpf_cnpj ? '<span style="font-size:12px;color:var(--ink-soft);">· ' + escapeHtml(c.cpf_cnpj) + '</span>' : '') +
+        '</div>' +
+        '<div style="font-size:12px;color:var(--ink-soft);display:flex;flex-wrap:wrap;gap:12px;">' +
+          (c.email ? '<span>✉ ' + escapeHtml(c.email) + '</span>' : '') +
+          (c.celular ? '<span>📱 ' + escapeHtml(c.celular) + '</span>' : '') +
+          (c.fone && c.fone !== c.celular ? '<span>☎ ' + escapeHtml(c.fone) + '</span>' : '') +
+          (c.cidade && c.uf ? '<span>📍 ' + escapeHtml(c.cidade) + '/' + escapeHtml(c.uf) + '</span>' : '') +
+          '<span>' + new Date(c.created_at).toLocaleString('pt-BR') + '</span>' +
+        '</div>' +
+        (c.obs ? '<div style="font-size:12px;color:var(--ink-soft);margin-top:5px;font-style:italic;">📝 ' + escapeHtml(c.obs) + '</div>' : '') +
+      '</div>' +
+      '<button type="button" data-cad-toggle="' + escapeHtml(c.id) + '" data-cad-status="' + escapeHtml(c.status) + '" ' +
+        'style="font-size:12px;padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer;white-space:nowrap;">' +
+        (c.status === 'importado' ? '↩ Pendente' : '✅ Importado') +
+      '</button>' +
+    '</div>';
+  }).join('');
+  host.querySelectorAll('[data-cad-toggle]').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var id = this.getAttribute('data-cad-toggle');
+      var cur = this.getAttribute('data-cad-status');
+      var next = cur === 'importado' ? 'pendente' : 'importado';
+      var res = await supabase.from('cadastros').update({ status: next }).eq('id', id);
+      if (res.error) { toast(friendlyError(res.error)); return; }
+      toast(next === 'importado' ? 'Marcado como importado.' : 'Marcado como pendente.');
+      await loadCadastros();
+    });
+  });
+}
+
+function downloadCadastrosCSV() {
+  var filterSel = document.getElementById('cadastroStatusFilter');
+  var filterVal = filterSel ? filterSel.value : '';
+  var list = state.cadastros.filter(function (c) { return !filterVal || c.status === filterVal; });
+  if (!list.length) { toast('Nenhum cadastro para exportar.'); return; }
+  var headers = ['Data','Tipo','Nome/Razão Social','CNPJ/CPF','IE/RG','E-mail','Telefone','WhatsApp/Celular','CEP','Logradouro','Número','Complemento','Bairro','Cidade','UF','Obs','Status'];
+  var rows = list.map(function (c) {
+    return [
+      new Date(c.created_at).toLocaleDateString('pt-BR'),
+      c.tipo_pessoa === 'J' ? 'Pessoa Jurídica' : 'Pessoa Física',
+      c.nome, c.cpf_cnpj, c.ie_rg,
+      c.email, c.fone, c.celular,
+      c.cep, c.endereco, c.numero, c.complemento,
+      c.bairro, c.cidade, c.uf,
+      c.obs, c.status
+    ].map(function (v) {
+      var s = String(v == null ? '' : v).replace(/"/g, '""');
+      return '"' + s + '"';
+    }).join(',');
+  });
+  var csv = '﻿' + headers.map(function (h) { return '"' + h + '"'; }).join(',') + '\n' + rows.join('\n');
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'cadastros-connectx-' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+  toast('CSV exportado: ' + list.length + ' cadastro(s).');
 }
 
 /* ============================================================
@@ -1007,6 +1106,8 @@ async function init() {
   document.getElementById('cancelBannerBtn').addEventListener('click', closeBannerModal);
   document.getElementById('saveBannerItemBtn').addEventListener('click', saveBannerFromModal);
   document.getElementById('tinySyncBtn').addEventListener('click', syncWithTiny);
+  document.getElementById('downloadCadastrosBtn').addEventListener('click', downloadCadastrosCSV);
+  document.getElementById('cadastroStatusFilter').addEventListener('change', renderCadastros);
   document.getElementById('closeProductModalBtn').addEventListener('click', closeProductModal);
   document.getElementById('cancelProductBtn').addEventListener('click', closeProductModal);
   document.getElementById('saveProductBtn').addEventListener('click', saveProductFromModal);
