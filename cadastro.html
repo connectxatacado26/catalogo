@@ -535,13 +535,16 @@
       var data = await res.json();
 
       if (data.ok || savedLocally) {
+        // Redireciona ao catálogo com mensagem de sucesso após 2 segundos
         document.getElementById('feedbackBox').className = 'feedback success';
         document.getElementById('feedbackBox').innerHTML =
           '✅ <strong>Cadastro enviado com sucesso!</strong><br>' +
-          'Nossa equipe irá analisar e entrar em contato via WhatsApp em breve.' +
-          (!data.ok ? '<br><small style="opacity:.8;">Salvo localmente; sincronização com Tiny em breve.</small>' : '');
+          'Obrigado! Redirecionando de volta ao catálogo…';
         document.getElementById('cadastroForm').reset();
         window.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(function () {
+          window.location.href = 'index.html?cadastro=ok';
+        }, 2000);
       } else {
         throw new Error(data.error || 'Erro ao cadastrar.');
       }

@@ -12,6 +12,10 @@
 </head>
 <body>
 
+<div id="cadastroSuccessBanner" style="display:none;background:#dcfce7;border-bottom:1px solid #86efac;color:#166534;padding:14px 20px;text-align:center;font-size:14px;font-weight:600;">
+  ✅ Cadastro enviado com sucesso! Nossa equipe entrará em contato em breve. 🎉
+</div>
+
 <div class="app">
   <div class="topbar">
     <div class="topbar-inner">
@@ -79,5 +83,21 @@
 
 <script src="js/config.js"></script>
 <script type="module" src="js/app.js"></script>
+<script>
+(function () {
+  if (new URLSearchParams(location.search).get('cadastro') === 'ok') {
+    var banner = document.getElementById('cadastroSuccessBanner');
+    if (banner) {
+      banner.style.display = 'block';
+      setTimeout(function () {
+        banner.style.transition = 'opacity .5s';
+        banner.style.opacity = '0';
+        setTimeout(function () { banner.style.display = 'none'; }, 500);
+      }, 5000);
+    }
+    history.replaceState({}, '', location.pathname);
+  }
+})();
+</script>
 </body>
 </html>
