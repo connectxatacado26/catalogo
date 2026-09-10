@@ -236,15 +236,7 @@
 
   <form id="cadastroForm" novalidate>
 
-    <!-- TIPO DE PESSOA -->
-    <div class="section-card">
-      <div class="section-title">Tipo de pessoa</div>
-      <div class="tipo-row">
-        <button type="button" class="tipo-btn active" data-tipo="J" id="btnJuridica">🏢 Pessoa Jurídica</button>
-        <button type="button" class="tipo-btn" data-tipo="F" id="btnFisica">👤 Pessoa Física</button>
-      </div>
-      <input type="hidden" id="tipo_pessoa" value="J">
-    </div>
+    <input type="hidden" id="tipo_pessoa" value="J">
 
     <!-- DADOS PRINCIPAIS -->
     <div class="section-card">
@@ -256,7 +248,7 @@
           <span class="err-msg">Campo obrigatório</span>
         </div>
         <div class="field">
-          <label id="label_cpf_cnpj">CNPJ <span class="req">*</span></label>
+          <label>CNPJ <span class="req">*</span></label>
           <div style="display:flex;gap:8px;align-items:flex-start;">
             <div style="flex:1;">
               <input type="text" id="cpf_cnpj" placeholder="00.000.000/0000-00" required maxlength="18" autocomplete="off" style="width:100%;">
@@ -267,7 +259,7 @@
           <div id="cnpjStatus" style="font-size:12px;margin-top:5px;min-height:16px;"></div>
         </div>
         <div class="field">
-          <label id="label_ie_rg">Inscrição Estadual</label>
+          <label>Inscrição Estadual</label>
           <input type="text" id="ie_rg" placeholder="Opcional" autocomplete="off">
         </div>
       </div>
@@ -370,38 +362,13 @@
   if (params.get('nome'))    document.getElementById('nome').value    = params.get('nome');
   if (params.get('celular')) document.getElementById('celular').value = params.get('celular');
 
-  // Tipo de pessoa
-  var tipoBtns = document.querySelectorAll('.tipo-btn');
-  tipoBtns.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      tipoBtns.forEach(function (b) { b.classList.remove('active'); });
-      btn.classList.add('active');
-      document.getElementById('tipo_pessoa').value = btn.dataset.tipo;
-      var isJ = btn.dataset.tipo === 'J';
-      document.getElementById('label_cpf_cnpj').innerHTML = (isJ ? 'CNPJ' : 'CPF') + ' <span class="req">*</span>';
-      document.getElementById('cpf_cnpj').placeholder = isJ ? '00.000.000/0000-00' : '000.000.000-00';
-      document.getElementById('cpf_cnpj').maxLength = isJ ? 18 : 14;
-      document.getElementById('label_ie_rg').textContent = isJ ? 'Inscrição Estadual' : 'RG';
-      document.getElementById('ie_rg').placeholder = isJ ? 'Opcional' : 'Opcional';
-    });
-  });
-
-  // Máscara CNPJ/CPF
+  // Máscara CNPJ
   document.getElementById('cpf_cnpj').addEventListener('input', function () {
-    var v = this.value.replace(/\D/g, '');
-    var tipo = document.getElementById('tipo_pessoa').value;
-    if (tipo === 'J') {
-      v = v.slice(0, 14);
-      v = v.replace(/^(\d{2})(\d)/, '$1.$2');
-      v = v.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
-      v = v.replace(/\.(\d{3})(\d)/, '.$1/$2');
-      v = v.replace(/(\d{4})(\d)/, '$1-$2');
-    } else {
-      v = v.slice(0, 11);
-      v = v.replace(/^(\d{3})(\d)/, '$1.$2');
-      v = v.replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3');
-      v = v.replace(/\.(\d{3})(\d)/, '.$1-$2');
-    }
+    var v = this.value.replace(/\D/g, '').slice(0, 14);
+    v = v.replace(/^(\d{2})(\d)/, '$1.$2');
+    v = v.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+    v = v.replace(/\.(\d{3})(\d)/, '.$1/$2');
+    v = v.replace(/(\d{4})(\d)/, '$1-$2');
     this.value = v;
   });
 
