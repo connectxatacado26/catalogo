@@ -349,7 +349,6 @@
     </div>
 
     <button type="submit" class="btn-submit" id="btnSubmit">✅ Enviar cadastro</button>
-    <button type="button" id="btnWpp" style="width:100%;padding:14px;background:#25d366;color:#fff;border:none;border-radius:var(--radius);font-size:16px;font-weight:700;font-family:'Inter',sans-serif;cursor:pointer;margin-top:10px;transition:background .15s;">📲 Enviar ficha pelo WhatsApp</button>
   </form>
 </div>
 
@@ -529,51 +528,6 @@
       btn.disabled = false;
       btn.textContent = '✅ Enviar cadastro';
     }
-  });
-  // Botão enviar pelo WhatsApp
-  document.getElementById('btnWpp').addEventListener('click', function () {
-    var cfg = window.CONNECTX_CONFIG || {};
-    var wpp = cfg.STORE_WHATSAPP || (cfg.SUPABASE_URL || '').replace(/.*\/\//, '').split('.')[0];
-
-    var tipo   = document.getElementById('tipo_pessoa').value === 'J' ? 'Pessoa Jurídica' : 'Pessoa Física';
-    var nome   = document.getElementById('nome').value.trim();
-    var doc    = document.getElementById('cpf_cnpj').value.trim();
-    var ie     = document.getElementById('ie_rg').value.trim();
-    var email  = document.getElementById('email').value.trim();
-    var fone   = document.getElementById('fone').value.trim();
-    var cel    = document.getElementById('celular').value.trim();
-    var cep    = document.getElementById('cep').value.trim();
-    var end    = document.getElementById('endereco').value.trim();
-    var num    = document.getElementById('numero').value.trim();
-    var comp   = document.getElementById('complemento').value.trim();
-    var bairro = document.getElementById('bairro').value.trim();
-    var cidade = document.getElementById('cidade').value.trim();
-    var uf     = document.getElementById('uf').value;
-    var obs    = document.getElementById('obs').value.trim();
-
-    if (!nome) { alert('Preencha pelo menos o Nome antes de enviar pelo WhatsApp.'); return; }
-
-    var msg =
-      '📋 *FICHA DE CADASTRO — CONNECT X ATACADO*\n' +
-      '━━━━━━━━━━━━━━━━━━━\n' +
-      '🏷️ *Tipo:* ' + tipo + '\n' +
-      '👤 *Nome/Razão Social:* ' + (nome || '—') + '\n' +
-      '📄 *CNPJ/CPF:* ' + (doc || '—') + '\n' +
-      (ie ? '🏛️ *IE/RG:* ' + ie + '\n' : '') +
-      '━━━━━━━━━━━━━━━━━━━\n' +
-      '📧 *E-mail:* ' + (email || '—') + '\n' +
-      '📞 *Telefone:* ' + (fone || '—') + '\n' +
-      '📱 *WhatsApp:* ' + (cel || '—') + '\n' +
-      '━━━━━━━━━━━━━━━━━━━\n' +
-      (end ? '📍 *Endereço:* ' + end + ', ' + (num || 'S/N') + (comp ? ' - ' + comp : '') + '\n' +
-             '   ' + (bairro || '') + ' — ' + (cidade || '') + '/' + (uf || '') + (cep ? ' — CEP: ' + cep : '') + '\n' : '') +
-      (obs ? '📝 *Obs:* ' + obs + '\n' : '') +
-      '━━━━━━━━━━━━━━━━━━━\n' +
-      '_Enviado via Catálogo Connect X Atacado_';
-
-    // Usa o número configurado no painel ou pede ao usuário
-    var numero = '5517992475355';
-    window.open('https://wa.me/' + numero + '?text=' + encodeURIComponent(msg), '_blank');
   });
 
 })();
