@@ -678,7 +678,6 @@ async function loadConfig() {
 async function loadAndRenderBanners(cfg) {
   var el = document.getElementById('siteBanner');
   if (!el) return;
-  if (sessionStorage.getItem('banner_dismissed') === '1') { el.style.display = 'none'; return; }
   if (!cfg || !cfg.banner_enabled) { el.style.display = 'none'; return; }
   var res = await supabase.from('banners').select('*').eq('enabled', true).order('sort_order');
   var banners = (!res.error && res.data) ? res.data : [];
@@ -753,16 +752,6 @@ function renderCarousel(el, banners) {
   el.style.display = '';
 }
 
-(function () {
-  var closeBtn = document.getElementById('bannerClose');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', function () {
-      var el = document.getElementById('siteBanner');
-      if (el) el.style.display = 'none';
-      sessionStorage.setItem('banner_dismissed', '1');
-    });
-  }
-})();
 
 function subscribeRealtime() {
   supabase.channel('catalog-products')
