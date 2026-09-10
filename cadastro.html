@@ -257,8 +257,14 @@
         </div>
         <div class="field">
           <label id="label_cpf_cnpj">CNPJ <span class="req">*</span></label>
-          <input type="text" id="cpf_cnpj" placeholder="00.000.000/0000-00" required maxlength="18" autocomplete="off">
-          <span class="err-msg">Informe um CNPJ/CPF válido</span>
+          <div style="display:flex;gap:8px;align-items:flex-start;">
+            <div style="flex:1;">
+              <input type="text" id="cpf_cnpj" placeholder="00.000.000/0000-00" required maxlength="18" autocomplete="off" style="width:100%;">
+              <span class="err-msg">Informe um CNPJ/CPF válido</span>
+            </div>
+            <button type="button" id="btnConsultaCnpj" style="padding:10px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'Inter',sans-serif;flex-shrink:0;transition:background .15s;">🔍 Consultar</button>
+          </div>
+          <div id="cnpjStatus" style="font-size:12px;margin-top:5px;min-height:16px;"></div>
         </div>
         <div class="field">
           <label id="label_ie_rg">Inscrição Estadual</label>
@@ -603,6 +609,76 @@
     window.open('https://wa.me/' + numero + '?text=' + encodeURIComponent(msg), '_blank');
   });
 
+})();
+</script>
+
+<!-- Botão flutuante WhatsApp -->
+<a href="https://wa.me/5517992475355" target="_blank" rel="noopener" aria-label="Fale no WhatsApp"
+   style="position:fixed;bottom:24px;right:24px;z-index:999;width:56px;height:56px;border-radius:50%;background:#25d366;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.22);transition:transform .15s,box-shadow .15s;text-decoration:none;"
+   onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="30" height="30" fill="#fff">
+    <path d="M16 2.667C8.637 2.667 2.667 8.637 2.667 16c0 2.336.62 4.623 1.799 6.63L2.667 29.333l6.87-1.763A13.27 13.27 0 0 0 16 29.333C23.363 29.333 29.333 23.363 29.333 16S23.363 2.667 16 2.667zm0 2.666c5.88 0 10.667 4.787 10.667 10.667S21.88 26.667 16 26.667a10.62 10.62 0 0 1-5.434-1.493l-.384-.228-4.08 1.047 1.077-3.97-.251-.4A10.62 10.62 0 0 1 5.333 16C5.333 10.12 10.12 5.333 16 5.333zm-3.04 4.8c-.213 0-.56.08-.853.4-.293.32-1.12 1.093-1.12 2.666s1.147 3.094 1.307 3.307c.16.213 2.24 3.573 5.52 4.867 2.72 1.093 3.28.88 3.867.827.587-.053 1.893-.773 2.16-1.52.267-.747.267-1.387.187-1.52-.08-.133-.293-.213-.614-.373-.32-.16-1.893-.947-2.186-1.053-.293-.107-.507-.16-.72.16-.213.32-.827 1.053-.987 1.253-.16.213-.32.24-.64.08-.32-.16-1.347-.493-2.56-1.573-.947-.84-1.587-1.88-1.773-2.2-.187-.32-.02-.493.14-.653.147-.147.32-.373.48-.56.16-.187.213-.32.32-.533.107-.213.053-.4-.027-.56-.08-.16-.72-1.733-.987-2.373-.24-.573-.507-.587-.72-.6l-.614-.013z"/>
+  </svg>
+</a>
+
+<script>
+(function () {
+  // Consultar CNPJ via Brasil API
+  var btnCnpj = document.getElementById('btnConsultaCnpj');
+  if (btnCnpj) {
+    btnCnpj.addEventListener('click', function () {
+      var tipo = document.getElementById('tipo_pessoa').value;
+      if (tipo !== 'J') {
+        document.getElementById('cnpjStatus').style.color = 'var(--danger)';
+        document.getElementById('cnpjStatus').textContent = 'Consulta disponível apenas para CNPJ (Pessoa Jurídica).';
+        return;
+      }
+      var cnpj = document.getElementById('cpf_cnpj').value.replace(/\D/g, '');
+      if (cnpj.length !== 14) {
+        document.getElementById('cnpjStatus').style.color = 'var(--danger)';
+        document.getElementById('cnpjStatus').textContent = 'Preencha o CNPJ completo (14 dígitos) antes de consultar.';
+        return;
+      }
+      btnCnpj.disabled = true;
+      btnCnpj.textContent = '⏳';
+      document.getElementById('cnpjStatus').textContent = 'Consultando…';
+      document.getElementById('cnpjStatus').style.color = 'var(--ink-soft)';
+      fetch('https://brasilapi.com.br/api/cnpj/v1/' + cnpj)
+        .then(function (r) {
+          if (!r.ok) throw new Error('CNPJ não encontrado na Receita Federal.');
+          return r.json();
+        })
+        .then(function (d) {
+          // Preenche razão social
+          if (d.razao_social) {
+            document.getElementById('nome').value = d.razao_social;
+          }
+          // Preenche endereço
+          if (d.logradouro) document.getElementById('endereco').value = d.logradouro;
+          if (d.numero)     document.getElementById('numero').value   = d.numero;
+          if (d.complemento) document.getElementById('complemento').value = d.complemento;
+          if (d.bairro)     document.getElementById('bairro').value   = d.bairro;
+          if (d.municipio)  document.getElementById('cidade').value   = d.municipio;
+          if (d.uf)         document.getElementById('uf').value       = d.uf;
+          if (d.cep)        document.getElementById('cep').value      = d.cep.replace(/^(\d{5})(\d{3})$/, '$1-$2');
+          // Status
+          var situacao = d.descricao_situacao_cadastral || '';
+          var ativa = (d.situacao_cadastral === 2 || /ativa/i.test(situacao));
+          document.getElementById('cnpjStatus').style.color = ativa ? '#166534' : '#92400e';
+          document.getElementById('cnpjStatus').textContent = ativa
+            ? '✅ CNPJ válido — empresa ativa. Dados preenchidos!'
+            : '⚠️ CNPJ encontrado mas situação: ' + (situacao || 'irregular') + '.';
+        })
+        .catch(function (err) {
+          document.getElementById('cnpjStatus').style.color = 'var(--danger)';
+          document.getElementById('cnpjStatus').textContent = '❌ ' + (err.message || 'Erro ao consultar CNPJ.');
+        })
+        .finally(function () {
+          btnCnpj.disabled = false;
+          btnCnpj.textContent = '🔍 Consultar';
+        });
+    });
+  }
 })();
 </script>
 

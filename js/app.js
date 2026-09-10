@@ -59,6 +59,20 @@ function statusLabel(s) {
 }
 
 /* ============================================================
+   Sessão do cliente
+   ============================================================ */
+function getSession() {
+  try { return JSON.parse(localStorage.getItem('cx_client_session') || 'null'); } catch(e) { return null; }
+}
+function setSession(data) {
+  try { localStorage.setItem('cx_client_session', JSON.stringify(data)); } catch(e) {}
+}
+function clearSession() {
+  try { localStorage.removeItem('cx_client_session'); } catch(e) {}
+}
+function isLoggedIn() { var s = getSession(); return !!(s && s.authed); }
+
+/* ============================================================
    Derivação de listas
    ============================================================ */
 function visibleProducts() {
@@ -161,7 +175,7 @@ function productCardHtml(p) {
     : '<div class="noimg">sem imagem</div>';
   var promoBadge = p.promoted ? '<span class="badge badge-promo promo-flag">★ destaque</span>' : '';
   var inCart = qty > 0;
-  var showPrice = p.show_price !== false;
+  var showPrice = isLoggedIn();
   var hasSale = showPrice && p.sale_price && Number(p.sale_price) > 0;
   var priceHtml = hasSale
     ? '<span class="price-strike">' + fmtBRL(p.price) + '</span><span class="price-sale">' + fmtBRL(p.sale_price) + '</span>'
@@ -177,7 +191,7 @@ function productCardHtml(p) {
         (p.description ? '<div class="desc">' + escapeHtml(p.description) + '</div>' : '') +
         (showPrice
           ? '<div class="price-row">' + priceHtml + (p.stock === 'sob_consulta' ? '<span class="badge badge-alert" style="font-size:10px;">sob consulta</span>' : '') + '</div>' + minQtyHtml
-          : ''
+          : '<div class="price-login-msg">🔒 Entre para ver os preços</div>'
         ) +
         '<button type="button" class="btn-cart' + (inCart ? ' in-cart' : '') + '" data-add="' + p.id + '">' +
           (inCart ? '✓ No carrinho (' + qty + ')' : 'Adicionar ao carrinho') +
@@ -243,6 +257,7 @@ function bindCardEvents(root) {
 function addToCart(id, qty) {
   var product = state.products.filter(function (p) { return p.id === id; })[0];
   if (!product) return;
+  if (!isLoggedIn()) { openLoginPopup(id); return; }
   if (qty <= 0) delete state.cart[id]; else state.cart[id] = qty;
   saveCartLocal();
   renderCatalog();
@@ -764,6 +779,85 @@ function subscribeRealtime() {
 }
 
 /* ============================================================
+   Login popup (clientes)
+   ============================================================ */
+var _loginPendingId = null;
+
+function openLoginPopup(pendingProductId) {
+  _loginPendingId = pendingProductId || null;
+  var overlay = document.getElementById('loginModalOverlay');
+  if (!overlay) return;
+  document.getElementById('loginEmailInput').value = '';
+  document.getElementById('loginEmailError').textContent = '';
+  overlay.classList.add('open');
+  setTimeout(function() { document.getElementById('loginEmailInput').focus(); }, 80);
+}
+function closeLoginPopup() {
+  var overlay = document.getElementById('loginModalOverlay');
+  if (overlay) overlay.classList.remove('open');
+  _loginPendingId = null;
+}
+async function doClientLogin() {
+  var emailEl = document.getElementById('loginEmailInput');
+  var errEl   = document.getElementById('loginEmailError');
+  var loginBtn = document.getElementById('loginEmailBtn');
+  var email = emailEl ? emailEl.value.trim() : '';
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errEl.textContent = 'Informe um e-mail válido.';
+    return;
+  }
+  loginBtn.disabled = true;
+  loginBtn.textContent = 'Verificando…';
+  errEl.textContent = '';
+  try {
+    var cfg = window.CONNECTX_CONFIG || {};
+    var res = await fetch(cfg.SUPABASE_URL + '/functions/v1/client-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': cfg.SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email: email }),
+      signal: AbortSignal.timeout(12000),
+    });
+    var data = await res.json();
+    if (data.found) {
+      setSession({ email: email, nome: data.nome || '', cpf_cnpj: data.cpf_cnpj || '', authed: true });
+      renderLoginState();
+      renderCatalog();
+      var firstName = (data.nome || 'Cliente').split(' ')[0];
+      toast('Bem-vindo(a), ' + firstName + '! 🎉');
+      var pid = _loginPendingId;
+      closeLoginPopup();
+      if (pid) addToCart(pid, 1);
+    } else {
+      errEl.textContent = 'E-mail não encontrado. Verifique ou cadastre-se.';
+    }
+  } catch(e) {
+    errEl.textContent = 'Erro ao verificar. Tente novamente.';
+  } finally {
+    loginBtn.disabled = false;
+    loginBtn.textContent = 'Entrar';
+  }
+}
+function renderLoginState() {
+  var btn = document.getElementById('loginStateBtn');
+  if (!btn) return;
+  var session = getSession();
+  if (session && session.authed) {
+    var firstName = (session.nome || 'Cliente').split(' ')[0];
+    btn.textContent = '👤 ' + firstName;
+    btn.title = 'Clique para sair';
+    btn.style.background = 'rgba(99,102,241,.14)';
+    btn.style.color = 'var(--accent)';
+    btn.style.borderColor = 'transparent';
+  } else {
+    btn.textContent = 'Entrar';
+    btn.title = '';
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+  }
+}
+
+/* ============================================================
    Eventos estáticos
    ============================================================ */
 function wireStaticEvents() {
@@ -785,6 +879,30 @@ function wireStaticEvents() {
     }
   });
   window.addEventListener('hashchange', routeFromHash);
+
+  // Login modal
+  var loginOverlay = document.getElementById('loginModalOverlay');
+  if (loginOverlay) {
+    document.getElementById('closeLoginModalBtn').addEventListener('click', closeLoginPopup);
+    loginOverlay.addEventListener('click', function(e) { if (e.target === loginOverlay) closeLoginPopup(); });
+    document.getElementById('loginEmailBtn').addEventListener('click', doClientLogin);
+    document.getElementById('loginEmailInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') doClientLogin();
+    });
+  }
+  var loginStateBtn = document.getElementById('loginStateBtn');
+  if (loginStateBtn) {
+    loginStateBtn.addEventListener('click', function() {
+      if (isLoggedIn()) {
+        clearSession();
+        renderLoginState();
+        renderCatalog();
+        toast('Você saiu da sua conta.');
+      } else {
+        openLoginPopup(null);
+      }
+    });
+  }
 }
 
 /* ============================================================
@@ -794,6 +912,7 @@ async function init() {
   loadCartLocal();
   wireStaticEvents();
   renderCartCount();
+  renderLoginState();
   await Promise.all([loadProducts(), loadConfig(), loadCategories(), loadBrands()]);
   subscribeRealtime();
   await routeFromHash();
