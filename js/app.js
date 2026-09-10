@@ -1,4 +1,17 @@
-import { supabase } from './supabaseClient.js';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const _cfg = window.CONNECTX_CONFIG || {};
+// Cliente do catálogo: sempre usa anon key, nunca persiste sessão de admin
+const supabase = createClient(
+  _cfg.SUPABASE_URL || '',
+  _cfg.SUPABASE_ANON_KEY || '',
+  {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    global: {
+      headers: { apikey: _cfg.SUPABASE_ANON_KEY || '' }
+    }
+  }
+);
 
 /* ============================================================
    Estado
