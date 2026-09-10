@@ -1313,6 +1313,9 @@ async function init() {
   document.getElementById('closeProductModalBtn').addEventListener('click', closeProductModal);
   document.getElementById('cancelProductBtn').addEventListener('click', closeProductModal);
   document.getElementById('saveProductBtn').addEventListener('click', saveProductFromModal);
+  document.getElementById('logoutBtn').addEventListener('click', async function () {
+    await supabase.auth.signOut();
+  });
 
   var sessionRes = await supabase.auth.getSession();
   state.session = sessionRes.data.session || null;
