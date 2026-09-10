@@ -191,7 +191,7 @@ function productCardHtml(p) {
         (p.description ? '<div class="desc">' + escapeHtml(p.description) + '</div>' : '') +
         (showPrice
           ? '<div class="price-row">' + priceHtml + (p.stock === 'sob_consulta' ? '<span class="badge badge-alert" style="font-size:10px;">sob consulta</span>' : '') + '</div>' + minQtyHtml
-          : '<div class="price-login-msg">🔒 Entre para ver os preços</div>'
+          : '<div class="price-login-msg">🔒 Faça o login para ver os preços</div>'
         ) +
         '<button type="button" class="btn-cart' + (inCart ? ' in-cart' : '') + '" data-add="' + p.id + '">' +
           (inCart ? '✓ No carrinho (' + qty + ')' : 'Adicionar ao carrinho') +
