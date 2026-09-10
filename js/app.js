@@ -696,19 +696,23 @@ function renderCarousel(el, banners) {
   var timer = null;
 
   track.innerHTML = banners.map(function (b) {
+    var hasText = !!(b.title || b.subtitle || b.link);
+    var gradient = b.image_url && hasText
+      ? 'linear-gradient(to top,rgba(0,0,0,.55) 0%,rgba(0,0,0,.1) 50%,transparent 100%),'
+      : '';
     var imgStyle = b.image_url
-      ? 'background-image:linear-gradient(135deg,rgba(0,0,0,.48),rgba(0,0,0,.18)),url(' + escapeHtml(b.image_url) + ');background-size:cover;background-position:center;'
+      ? 'background-image:' + gradient + 'url(' + escapeHtml(b.image_url) + ');background-size:cover;background-position:center;'
       : '';
     var cta = b.link
       ? '<a class="site-banner-cta" href="' + escapeHtml(b.link) + '" target="_blank" rel="noopener">' + escapeHtml(b.btn_text || 'Ver mais') + '</a>'
       : '';
-    return '<div class="banner-slide' + (b.image_url ? ' has-image' : '') + '" style="' + imgStyle + '">' +
-      '<div class="banner-slide-inner">' +
-        '<div class="site-banner-text">' +
-          '<p class="site-banner-title">' + escapeHtml(b.title || '') + '</p>' +
+    var textHtml = hasText
+      ? '<div class="banner-slide-inner"><div class="site-banner-text">' +
+          (b.title ? '<p class="site-banner-title">' + escapeHtml(b.title) + '</p>' : '') +
           (b.subtitle ? '<p class="site-banner-sub">' + escapeHtml(b.subtitle) + '</p>' : '') +
-        '</div>' + cta +
-      '</div></div>';
+        '</div>' + cta + '</div>'
+      : '';
+    return '<div class="banner-slide' + (b.image_url ? ' has-image' : '') + '" style="' + imgStyle + '">' + textHtml + '</div>';
   }).join('');
 
   function goTo(idx) {
