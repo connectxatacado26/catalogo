@@ -80,8 +80,9 @@ function categoriesAdminList() {
 /* ============================================================
    Upload de imagem
    ============================================================ */
-function fileToResizedBlob(file, maxSize) {
+function fileToResizedBlob(file, maxSize, quality) {
   maxSize = maxSize || 900;
+  quality = quality || 0.78;
   return new Promise(function (resolve, reject) {
     var reader = new FileReader();
     reader.onerror = function () { reject(new Error('read_failed')); };
@@ -97,7 +98,7 @@ function fileToResizedBlob(file, maxSize) {
         canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
         canvas.toBlob(function (blob) {
           if (blob) resolve(blob); else reject(new Error('encode_failed'));
-        }, 'image/jpeg', 0.78);
+        }, 'image/jpeg', quality);
       };
       img.src = reader.result;
     };
@@ -311,7 +312,7 @@ async function deleteBanner(id) {
 }
 
 async function uploadBannerImage(file) {
-  var blob = await fileToResizedBlob(file);
+  var blob = await fileToResizedBlob(file, 1920, 0.92);
   var path = 'banners/' + Date.now() + '.jpg';
   var up = await supabase.storage.from('product-images').upload(path, blob, { contentType: 'image/jpeg', upsert: false });
   if (up.error) throw up.error;
