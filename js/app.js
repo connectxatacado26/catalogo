@@ -185,7 +185,7 @@ function productCardHtml(p) {
   var qty = state.cart[p.id] || 0;
   var img = p.image_url
     ? '<img src="' + p.image_url + '" alt="' + escapeHtml(p.name) + '" loading="lazy">'
-    : null;
+    : '<div class="noimg">sem imagem</div>';
   var promoBadge = p.promoted ? '<span class="badge badge-promo promo-flag">★ destaque</span>' : '';
   var inCart = qty > 0;
   var showPrice = isLoggedIn();
@@ -198,7 +198,7 @@ function productCardHtml(p) {
     : '';
   return (
     '<div class="card" data-id="' + p.id + '">' +
-      (img ? '<div class="imgwrap">' + img + promoBadge + '</div>' : '') +
+      '<div class="imgwrap">' + img + promoBadge + '</div>' +
       '<div class="body">' +
         '<h3 class="card-name">' + escapeHtml(p.name) + '</h3>' +
         (p.description ? '<div class="desc">' + escapeHtml(p.description) + '</div>' : '') +
