@@ -225,7 +225,7 @@ button{font-family:inherit;}
 .category-name{font-size:13px;font-weight:600;color:var(--ink);line-height:1.25;}
 .category-price{font-size:11px;color:var(--accent-deep);font-weight:600;}
 
-.grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(220px,1fr));gap:16px;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(220px,1fr));gap:16px;align-items:start;}
 .card{
   background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
   overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow);
