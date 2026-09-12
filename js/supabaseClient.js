@@ -11,14 +11,13 @@ if (!cfg.SUPABASE_URL || cfg.SUPABASE_URL.indexOf('SEU-PROJETO') > -1) {
   );
 }
 
-// O anon key tem iat no futuro do servidor. Removemos Authorization nas chamadas
-// anônimas: PostgREST usa a role anon via apikey sem validar o JWT.
-// Usamos `new Headers()` para copiar corretamente mesmo quando o cliente envia
-// um objeto Headers (não um plain object).
-const anonBearer = 'Bearer ' + (cfg.SUPABASE_ANON_KEY || '');
+// O anon key tem iat no futuro do servidor. Removemos Authorization quando contém
+// o anon key: PostgREST usa a role anon via apikey sem validar o JWT.
+const anonKey = cfg.SUPABASE_ANON_KEY || '';
 const customFetch = (url, options = {}) => {
   const hdrs = new Headers(options.headers || {});
-  if (hdrs.get('Authorization') === anonBearer) {
+  const auth = hdrs.get('Authorization') || '';
+  if (anonKey && auth.includes(anonKey)) {
     hdrs.delete('Authorization');
   }
   return fetch(url, Object.assign({}, options, { headers: hdrs }));
