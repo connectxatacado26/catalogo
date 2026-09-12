@@ -125,6 +125,15 @@ function filteredForGrid() {
              (p.category || '').toLowerCase().indexOf(term) > -1;
     });
   }
+  // Ordenar por categoria (sort_order) e depois por nome
+  var catOrder = {};
+  (state.categories || []).forEach(function (c, i) { catOrder[c.name] = c.sort_order != null ? c.sort_order : i; });
+  list = list.slice().sort(function (a, b) {
+    var oa = catOrder[a.category] != null ? catOrder[a.category] : 999;
+    var ob = catOrder[b.category] != null ? catOrder[b.category] : 999;
+    if (oa !== ob) return oa - ob;
+    return (a.name || '').localeCompare(b.name || '', 'pt-BR');
+  });
   return list;
 }
 
