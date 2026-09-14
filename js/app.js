@@ -382,11 +382,14 @@ function closeCart() {
 function openCheckoutModal() {
   var items = cartItems();
   if (!items.length) return;
+  var session = getSession();
+  var prefillNome = (session && session.nome) ? session.nome : '';
+  var prefillPhone = (session && session.celular) ? session.celular : ((session && session.fone) ? session.fone : '');
   var body = document.getElementById('checkoutModalBody');
   body.innerHTML =
-    '<div class="eyebrow">Quase lá! Preencha seus dados:</div>' +
-    '<div class="field"><label>Seu nome *</label><input type="text" id="co_customer" placeholder="Ex: João Silva"><div class="required-note" id="co_nameError" style="display:none;">Informe seu nome</div></div>' +
-    '<div class="field"><label>Seu WhatsApp *</label><input type="tel" id="co_phone" placeholder="(11) 99999-9999"></div>' +
+    '<div class="eyebrow">Quase lá! Confirme seus dados:</div>' +
+    '<div class="field"><label>Seu nome *</label><input type="text" id="co_customer" placeholder="Ex: João Silva" value="' + escapeHtml(prefillNome) + '"><div class="required-note" id="co_nameError" style="display:none;">Informe seu nome</div></div>' +
+    '<div class="field"><label>Seu WhatsApp *</label><input type="tel" id="co_phone" placeholder="(11) 99999-9999" value="' + escapeHtml(prefillPhone) + '"></div>' +
     '<div class="field"><label>Observações (opcional)</label><textarea id="co_notes" placeholder="Cor, urgência, combinação de itens..."></textarea></div>' +
     '<div style="border-top:1px solid var(--line);padding-top:12px;">' +
       items.map(function (it) {
