@@ -1021,8 +1021,8 @@ function renderCadastros() {
       ? '<span style="background:#dbeafe;color:#1d4ed8;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;">PJ</span>'
       : '<span style="background:#dcfce7;color:#166534;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;">PF</span>';
     var statusBadge = c.status === 'importado'
-      ? '<span style="background:#dcfce7;color:#166534;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;">✓ Importado</span>'
-      : '<span style="background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;">Pendente</span>';
+      ? '<span style="background:#dcfce7;color:#166534;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;">✓ Acesso liberado</span>'
+      : '<span style="background:#fef9c3;color:#854d0e;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700;">⏳ Aguardando</span>';
     return '<div data-cad-id="' + escapeHtml(c.id) + '" style="display:grid;grid-template-columns:1fr auto;gap:14px;align-items:start;padding:14px 20px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s;"' +
         ' onmouseenter="this.style.background=\'var(--paper-2,#f8fafc)\'" onmouseleave="this.style.background=\'\'">' +
       '<div>' +
@@ -1042,7 +1042,7 @@ function renderCadastros() {
       '</div>' +
       '<button type="button" data-cad-toggle="' + escapeHtml(c.id) + '" data-cad-status="' + escapeHtml(c.status) + '" ' +
         'style="font-size:12px;padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer;white-space:nowrap;">' +
-        (c.status === 'importado' ? '↩ Pendente' : '✅ Importado') +
+        (c.status === 'importado' ? '🔒 Bloquear acesso' : '✅ Liberar acesso') +
       '</button>' +
     '</div>';
   }).join('');
@@ -1062,7 +1062,7 @@ function renderCadastros() {
       var next = cur === 'importado' ? 'pendente' : 'importado';
       var res = await supabase.from('cadastros').update({ status: next }).eq('id', id);
       if (res.error) { toast(friendlyError(res.error)); return; }
-      toast(next === 'importado' ? 'Marcado como importado.' : 'Marcado como pendente.');
+      toast(next === 'importado' ? 'Acesso liberado.' : 'Acesso bloqueado.');
       await loadCadastros();
     });
   });
