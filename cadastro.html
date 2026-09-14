@@ -477,9 +477,34 @@
     };
 
     try {
-      // 1. Salva no Supabase (sempre — garante que nunca perdemos o lead)
       var supabaseUrl = (cfg.SUPABASE_URL || '').replace(/\/$/, '');
       var anonKey    = cfg.SUPABASE_ANON_KEY || '';
+
+      // 0. Verifica duplicidade no Tiny ERP antes de prosseguir
+      btn.textContent = '⏳ Verificando cadastro…';
+      try {
+        var chkRes = await fetch(supabaseUrl + '/functions/v1/client-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': anonKey },
+          body: JSON.stringify({ email: payload.email }),
+        });
+        var chkData = await chkRes.json();
+        if (chkData.found) {
+          document.getElementById('feedbackBox').className = 'feedback error-box';
+          document.getElementById('feedbackBox').innerHTML =
+            '⚠️ <strong>E-mail já cadastrado.</strong><br>' +
+            'Você já possui cadastro conosco. ' +
+            'Acesse o catálogo com seu e-mail normalmente.';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          btn.disabled = false;
+          btn.textContent = '✅ Enviar cadastro';
+          return;
+        }
+      } catch (_) { /* se a verificação falhar, permite continuar */ }
+
+      btn.textContent = '⏳ Enviando…';
+
+      // 1. Salva no Supabase (sempre — garante que nunca perdemos o lead)
       var savedLocally = false;
       if (supabaseUrl && anonKey) {
         try {
