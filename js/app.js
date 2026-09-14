@@ -144,9 +144,11 @@ function filteredForGrid() {
 function renderChips() {
   var host = document.getElementById('chiprow');
   var brandHtml = '';
-  if (state.brands.length > 1) {
+  var activeBrands = new Set(visibleProducts().map(function (p) { return p.brand; }).filter(Boolean));
+  var brandsWithProducts = state.brands.filter(function (b) { return activeBrands.has(b.name); });
+  if (brandsWithProducts.length > 1) {
     var brandChips = [{ key: null, label: 'Todas as marcas' }].concat(
-      state.brands.map(function (b) { return { key: b.name, label: b.name }; })
+      brandsWithProducts.map(function (b) { return { key: b.name, label: b.name }; })
     );
     brandHtml = '<div class="chiprow-brand">' + brandChips.map(function (b) {
       var active = state.activeBrand === b.key ? ' active' : '';
