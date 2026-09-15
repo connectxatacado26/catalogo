@@ -734,7 +734,6 @@ function renderCarousel(el, banners) {
       : '';
     var textHtml = hasText
       ? '<div class="banner-slide-inner"><div class="site-banner-text">' +
-          (b.title ? '<p class="site-banner-title">' + escapeHtml(b.title) + '</p>' : '') +
           (b.subtitle ? '<p class="site-banner-sub">' + escapeHtml(b.subtitle) + '</p>' : '') +
         '</div>' + cta + '</div>'
       : '';
