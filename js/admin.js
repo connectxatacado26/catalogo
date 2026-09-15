@@ -244,6 +244,8 @@ async function saveBannerEnabled() {
 var editingBannerId = null;
 var bannerPendingFile = null;
 var bannerPendingImageUrl = '';
+var bannerPendingVideo = null;
+var bannerPendingVideoUrl = '';
 
 async function loadBanners() {
   var res = await supabase.from('banners').select('*').order('sort_order');
@@ -319,11 +321,21 @@ async function uploadBannerImage(file) {
   return supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
 }
 
+async function uploadBannerVideo(file) {
+  var ext = file.name.split('.').pop().toLowerCase() || 'mp4';
+  var path = 'banners/video_' + Date.now() + '.' + ext;
+  var up = await supabase.storage.from('product-images').upload(path, file, { contentType: file.type, upsert: false });
+  if (up.error) throw up.error;
+  return supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl;
+}
+
 function openBannerModal(id) {
   editingBannerId = id || null;
   bannerPendingFile = null;
+  bannerPendingVideo = null;
   var b = id ? state.banners.find(function (x) { return x.id === id; }) : null;
   bannerPendingImageUrl = b ? (b.image_url || '') : '';
+  bannerPendingVideoUrl = b ? (b.video_url || '') : '';
 
   var overlay = document.getElementById('bannerModalOverlay');
   document.getElementById('bannerModalTitle').textContent = b ? 'Editar banner' : 'Novo banner';
@@ -336,6 +348,11 @@ function openBannerModal(id) {
   var prev = document.getElementById('bfImgPreview');
   prev.innerHTML = bannerPendingImageUrl ? '<img src="' + escapeHtml(bannerPendingImageUrl) + '" style="max-height:80px;border-radius:6px;">' : '';
 
+  var vidPrev = document.getElementById('bfVideoPreview');
+  vidPrev.innerHTML = bannerPendingVideoUrl
+    ? '<video src="' + escapeHtml(bannerPendingVideoUrl) + '" controls style="max-height:80px;border-radius:6px;"></video>'
+    : '';
+
   var fileInput = document.getElementById('bf_image');
   fileInput.value = '';
   fileInput.onchange = function () {
@@ -345,6 +362,16 @@ function openBannerModal(id) {
     var reader = new FileReader();
     reader.onload = function () { prev.innerHTML = '<img src="' + reader.result + '" style="max-height:80px;border-radius:6px;">'; };
     reader.readAsDataURL(file);
+  };
+
+  var videoInput = document.getElementById('bf_video');
+  videoInput.value = '';
+  videoInput.onchange = function () {
+    var file = videoInput.files[0];
+    if (!file) return;
+    bannerPendingVideo = file;
+    var objUrl = URL.createObjectURL(file);
+    vidPrev.innerHTML = '<video src="' + objUrl + '" controls style="max-height:80px;border-radius:6px;"></video>';
   };
 
   overlay.classList.add('open');
@@ -363,10 +390,13 @@ async function saveBannerFromModal() {
   try {
     var imgUrl = bannerPendingImageUrl;
     if (bannerPendingFile) imgUrl = await uploadBannerImage(bannerPendingFile);
+    var vidUrl = bannerPendingVideoUrl;
+    if (bannerPendingVideo) { saveBtn.textContent = 'Enviando vídeo…'; vidUrl = await uploadBannerVideo(bannerPendingVideo); }
     var data = {
       title:      document.getElementById('bf_title').value.trim(),
       subtitle:   document.getElementById('bf_subtitle').value.trim() || null,
       image_url:  imgUrl || null,
+      video_url:  vidUrl || null,
       link:       document.getElementById('bf_link').value.trim() || null,
       btn_text:   document.getElementById('bf_btn').value.trim() || null,
       enabled:    document.getElementById('bf_enabled').checked

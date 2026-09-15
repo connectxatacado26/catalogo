@@ -112,9 +112,12 @@ button{font-family:inherit;}
   transition:transform .42s cubic-bezier(.4,0,.2,1);
   will-change:transform;
 }
+.banner-video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;}
+.banner-video-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(to top,rgba(0,0,0,.45) 0%,rgba(0,0,0,.08) 50%,transparent 100%);z-index:1;}
 .banner-slide{
   min-width:100%;
   position:relative;
+  overflow:hidden;
   background:var(--accent);
   color:#fff;
   min-height:320px;

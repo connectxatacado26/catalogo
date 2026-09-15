@@ -723,12 +723,6 @@ function renderCarousel(el, banners) {
 
   track.innerHTML = banners.map(function (b) {
     var hasText = !!(b.title || b.subtitle || b.link);
-    var gradient = b.image_url && hasText
-      ? 'linear-gradient(to top,rgba(0,0,0,.55) 0%,rgba(0,0,0,.1) 50%,transparent 100%),'
-      : '';
-    var imgStyle = b.image_url
-      ? 'background-image:' + gradient + 'url(' + escapeHtml(b.image_url) + ');background-size:cover;background-position:center;'
-      : '';
     var cta = b.link
       ? '<a class="site-banner-cta" href="' + escapeHtml(b.link) + '" target="_blank" rel="noopener">' + escapeHtml(b.btn_text || 'Ver mais') + '</a>'
       : '';
@@ -736,6 +730,23 @@ function renderCarousel(el, banners) {
       ? '<div class="banner-slide-inner"><div class="site-banner-text">' +
           (b.subtitle ? '<p class="site-banner-sub">' + escapeHtml(b.subtitle) + '</p>' : '') +
         '</div>' + cta + '</div>'
+      : '';
+
+    if (b.video_url) {
+      var overlay = hasText ? '<div class="banner-video-overlay"></div>' : '';
+      return '<div class="banner-slide has-image">' +
+        '<video class="banner-video" autoplay muted loop playsinline>' +
+          '<source src="' + escapeHtml(b.video_url) + '">' +
+        '</video>' +
+        overlay + textHtml +
+      '</div>';
+    }
+
+    var gradient = b.image_url && hasText
+      ? 'linear-gradient(to top,rgba(0,0,0,.55) 0%,rgba(0,0,0,.1) 50%,transparent 100%),'
+      : '';
+    var imgStyle = b.image_url
+      ? 'background-image:' + gradient + 'url(' + escapeHtml(b.image_url) + ');background-size:cover;background-position:center;'
       : '';
     return '<div class="banner-slide' + (b.image_url ? ' has-image' : '') + '" style="' + imgStyle + '">' + textHtml + '</div>';
   }).join('');
