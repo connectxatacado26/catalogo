@@ -761,7 +761,7 @@ function renderCarousel(el, banners) {
 
   function startTimer() {
     clearInterval(timer);
-    if (total > 1) timer = setInterval(function () { goTo(current + 1); }, 5000);
+    if (total > 1) timer = setInterval(function () { goTo(current + 1); }, 6000);
   }
 
   if (total > 1) {
