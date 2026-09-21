@@ -277,12 +277,12 @@
         <div class="field">
           <label>Telefone <span class="req">*</span></label>
           <input type="tel" id="fone" placeholder="(00) 0000-0000" required autocomplete="tel">
-          <span class="err-msg">Campo obrigatório</span>
+          <span class="err-msg"></span>
         </div>
         <div class="field">
           <label>WhatsApp / Celular <span class="req">*</span></label>
           <input type="tel" id="celular" placeholder="(00) 00000-0000" required autocomplete="tel">
-          <span class="err-msg">Campo obrigatório</span>
+          <span class="err-msg"></span>
         </div>
       </div>
     </div>
@@ -356,6 +356,19 @@
 (function () {
   var cfg = window.CONNECTX_CONFIG || {};
   window.__cnpjAtivo = false; // só true após consulta confirmar empresa ativa
+
+  var DDD_VALIDOS = [11,12,13,14,15,16,17,18,19,21,22,24,27,28,31,32,33,34,35,37,38,41,42,43,44,45,46,47,48,49,51,53,54,55,61,62,63,64,65,66,67,68,69,71,73,74,75,77,79,81,82,83,84,85,86,87,88,89,91,92,93,94,95,96,97,98,99];
+
+  function validarTelefone(valor) {
+    var d = valor.replace(/\D/g, '');
+    if (d.length < 10 || d.length > 11) return 'Informe o telefone com DDD e número completo.';
+    var ddd = parseInt(d.slice(0, 2), 10);
+    if (DDD_VALIDOS.indexOf(ddd) === -1) return 'DDD ' + ddd + ' inválido.';
+    var num = d.slice(2);
+    if (/^(\d)\1+$/.test(num)) return 'Número inválido (dígitos repetidos).';
+    if (d.length === 11 && num[0] !== '9') return 'Celular deve começar com 9 após o DDD.';
+    return null;
+  }
 
   function validarCNPJ(c) {
     if (c.length !== 14 || /^(\d)\1+$/.test(c)) return false;
@@ -456,8 +469,17 @@
 
     required('nome');
     validEmail('email');
-    required('fone');
-    required('celular');
+
+    function validarFone(id) {
+      var el = document.getElementById(id);
+      var msg = el.value.trim() === '' ? 'Campo obrigatório.' : validarTelefone(el.value);
+      el.classList.toggle('error', !!msg);
+      var errEl = el.nextElementSibling;
+      if (errEl && errEl.classList.contains('err-msg')) errEl.textContent = msg || '';
+      if (msg) ok = false;
+    }
+    validarFone('fone');
+    validarFone('celular');
 
     // Valida CNPJ: formato + dígitos verificadores + consulta realizada e empresa ativa
     var cnpjEl = document.getElementById('cpf_cnpj');
