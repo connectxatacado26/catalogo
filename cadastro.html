@@ -252,7 +252,7 @@
           <div style="display:flex;gap:8px;align-items:flex-start;">
             <div style="flex:1;">
               <input type="text" id="cpf_cnpj" placeholder="00.000.000/0000-00" required maxlength="18" autocomplete="off" style="width:100%;">
-              <span class="err-msg">Informe um CNPJ/CPF válido</span>
+              <span class="err-msg">Informe um CNPJ válido (14 dígitos)</span>
             </div>
             <button type="button" id="btnConsultaCnpj" style="padding:10px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'Inter',sans-serif;flex-shrink:0;transition:background .15s;">🔍 Consultar</button>
           </div>
@@ -355,14 +355,29 @@
 <script>
 (function () {
   var cfg = window.CONNECTX_CONFIG || {};
+  window.__cnpjAtivo = false; // só true após consulta confirmar empresa ativa
+
+  function validarCNPJ(c) {
+    if (c.length !== 14 || /^(\d)\1+$/.test(c)) return false;
+    var soma = 0, pos = 5;
+    for (var i = 0; i < 12; i++) { soma += parseInt(c[i]) * pos--; if (pos < 2) pos = 9; }
+    var r = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+    if (r !== parseInt(c[12])) return false;
+    soma = 0; pos = 6;
+    for (var i = 0; i < 13; i++) { soma += parseInt(c[i]) * pos--; if (pos < 2) pos = 9; }
+    r = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+    return r === parseInt(c[13]);
+  }
 
   // Pré-preenche nome e celular se vieram da URL (ex: ?nome=João&celular=11999)
   var params = new URLSearchParams(location.search);
   if (params.get('nome'))    document.getElementById('nome').value    = params.get('nome');
   if (params.get('celular')) document.getElementById('celular').value = params.get('celular');
 
-  // Máscara CNPJ
+  // Máscara CNPJ — reset do estado ao digitar
   document.getElementById('cpf_cnpj').addEventListener('input', function () {
+    window.__cnpjAtivo = false;
+    document.getElementById('cnpjStatus').textContent = '';
     var v = this.value.replace(/\D/g, '').slice(0, 14);
     v = v.replace(/^(\d{2})(\d)/, '$1.$2');
     v = v.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
@@ -440,10 +455,27 @@
     }
 
     required('nome');
-    required('cpf_cnpj');
     validEmail('email');
     required('fone');
     required('celular');
+
+    // Valida CNPJ: formato + dígitos verificadores + consulta realizada e empresa ativa
+    var cnpjEl = document.getElementById('cpf_cnpj');
+    var cnpjDigits = cnpjEl.value.replace(/\D/g, '');
+    var cnpjStatusEl = document.getElementById('cnpjStatus');
+    if (!validarCNPJ(cnpjDigits)) {
+      cnpjEl.classList.add('error');
+      cnpjStatusEl.style.color = 'var(--danger)';
+      cnpjStatusEl.textContent = '❌ CNPJ inválido. Verifique os dígitos e tente novamente.';
+      ok = false;
+    } else if (!window.__cnpjAtivo) {
+      cnpjEl.classList.add('error');
+      cnpjStatusEl.style.color = 'var(--danger)';
+      cnpjStatusEl.textContent = '⚠️ Clique em "Consultar" para verificar o CNPJ antes de enviar.';
+      ok = false;
+    } else {
+      cnpjEl.classList.remove('error');
+    }
 
     if (!ok) {
       document.getElementById('feedbackBox').className = 'feedback error-box';
@@ -570,55 +602,55 @@
 
 <script>
 (function () {
-  // Consultar CNPJ via Brasil API
+  // Consultar CNPJ via Brasil API — precisa ser feito e empresa deve estar ATIVA para liberar envio
   var btnCnpj = document.getElementById('btnConsultaCnpj');
   if (btnCnpj) {
     btnCnpj.addEventListener('click', function () {
-      var tipo = document.getElementById('tipo_pessoa').value;
-      if (tipo !== 'J') {
-        document.getElementById('cnpjStatus').style.color = 'var(--danger)';
-        document.getElementById('cnpjStatus').textContent = 'Consulta disponível apenas para CNPJ (Pessoa Jurídica).';
-        return;
-      }
       var cnpj = document.getElementById('cpf_cnpj').value.replace(/\D/g, '');
+      var statusEl = document.getElementById('cnpjStatus');
       if (cnpj.length !== 14) {
-        document.getElementById('cnpjStatus').style.color = 'var(--danger)';
-        document.getElementById('cnpjStatus').textContent = 'Preencha o CNPJ completo (14 dígitos) antes de consultar.';
+        statusEl.style.color = 'var(--danger)';
+        statusEl.textContent = 'Preencha o CNPJ completo (14 dígitos) antes de consultar.';
         return;
       }
       btnCnpj.disabled = true;
       btnCnpj.textContent = '⏳';
-      document.getElementById('cnpjStatus').textContent = 'Consultando…';
-      document.getElementById('cnpjStatus').style.color = 'var(--ink-soft)';
+      statusEl.textContent = 'Consultando na Receita Federal…';
+      statusEl.style.color = 'var(--ink-soft)';
       fetch('https://brasilapi.com.br/api/cnpj/v1/' + cnpj)
         .then(function (r) {
           if (!r.ok) throw new Error('CNPJ não encontrado na Receita Federal.');
           return r.json();
         })
         .then(function (d) {
-          // Preenche razão social
-          if (d.razao_social) {
-            document.getElementById('nome').value = d.razao_social;
-          }
-          // Preenche endereço
-          if (d.logradouro) document.getElementById('endereco').value = d.logradouro;
-          if (d.numero)     document.getElementById('numero').value   = d.numero;
-          if (d.complemento) document.getElementById('complemento').value = d.complemento;
-          if (d.bairro)     document.getElementById('bairro').value   = d.bairro;
-          if (d.municipio)  document.getElementById('cidade').value   = d.municipio;
-          if (d.uf)         document.getElementById('uf').value       = d.uf;
-          if (d.cep)        document.getElementById('cep').value      = d.cep.replace(/^(\d{5})(\d{3})$/, '$1-$2');
-          // Status
+          if (d.razao_social) document.getElementById('nome').value = d.razao_social;
+          if (d.logradouro)   document.getElementById('endereco').value = d.logradouro;
+          if (d.numero)       document.getElementById('numero').value   = d.numero;
+          if (d.complemento)  document.getElementById('complemento').value = d.complemento;
+          if (d.bairro)       document.getElementById('bairro').value   = d.bairro;
+          if (d.municipio)    document.getElementById('cidade').value   = d.municipio;
+          if (d.uf)           document.getElementById('uf').value       = d.uf;
+          if (d.cep)          document.getElementById('cep').value      = d.cep.replace(/^(\d{5})(\d{3})$/, '$1-$2');
+
           var situacao = d.descricao_situacao_cadastral || '';
           var ativa = (d.situacao_cadastral === 2 || /ativa/i.test(situacao));
-          document.getElementById('cnpjStatus').style.color = ativa ? '#166534' : '#92400e';
-          document.getElementById('cnpjStatus').textContent = ativa
-            ? '✅ CNPJ válido — empresa ativa. Dados preenchidos!'
-            : '⚠️ CNPJ encontrado mas situação: ' + (situacao || 'irregular') + '.';
+
+          // Expõe no escopo da função principal via window para que o submit acesse
+          window.__cnpjAtivo = ativa;
+          document.getElementById('cpf_cnpj').classList.remove('error');
+
+          if (ativa) {
+            statusEl.style.color = '#166534';
+            statusEl.textContent = '✅ CNPJ válido — empresa ativa. Dados preenchidos!';
+          } else {
+            statusEl.style.color = '#92400e';
+            statusEl.textContent = '⚠️ CNPJ encontrado mas situação: ' + (situacao || 'irregular') + '. Cadastro não permitido.';
+          }
         })
         .catch(function (err) {
-          document.getElementById('cnpjStatus').style.color = 'var(--danger)';
-          document.getElementById('cnpjStatus').textContent = '❌ ' + (err.message || 'Erro ao consultar CNPJ.');
+          window.__cnpjAtivo = false;
+          statusEl.style.color = 'var(--danger)';
+          statusEl.textContent = '❌ ' + (err.message || 'Erro ao consultar CNPJ.');
         })
         .finally(function () {
           btnCnpj.disabled = false;
