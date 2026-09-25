@@ -68,34 +68,48 @@ Deno.serve(async (req) => {
       )
     }
 
-    // 2. Fallback: busca no Tiny ERP pelo email
+    // 2. Fallback: varre contatos do Tiny comparando campo email (API não filtra por email)
     const tinyToken = Deno.env.get('TINY_TOKEN') ?? ''
     if (tinyToken) {
-      const tinyRes = await fetch(
-        `https://api.tiny.com.br/api2/contatos.pesquisa.php?token=${tinyToken}&pesquisa=${encodeURIComponent(emailNorm)}&formato=JSON`,
-        { signal: AbortSignal.timeout(8000) }
-      ).catch(() => null)
+      const MAX_PAGES = 15 // até ~750 contatos por busca
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const tinyRes = await fetch(
+          `https://api.tiny.com.br/api2/contatos.pesquisa.php?token=${tinyToken}&situacao=A&pagina=${page}&formato=JSON`,
+          { signal: AbortSignal.timeout(8000) }
+        ).catch(() => null)
 
-      if (tinyRes) {
+        if (!tinyRes) break
         const tinyData = await tinyRes.json().catch(() => null)
-        const contatos = tinyData?.retorno?.contatos
-        if (
-          tinyData?.retorno?.status === 'OK' &&
-          Array.isArray(contatos) &&
-          contatos.length > 0
-        ) {
-          const c = contatos[0].contato
-          if (c && (c.situacao === 'A' || !c.situacao)) {
-            return new Response(
-              JSON.stringify({
-                found: true,
-                nome: c.razaoSocial || c.nome || emailNorm,
-                cpf_cnpj: c.cnpj || c.cpf || '',
-              }),
-              { headers: { ...CORS, 'Content-Type': 'application/json' } }
-            )
-          }
+        if (tinyData?.retorno?.status !== 'OK') break
+
+        const contatos: any[] = tinyData.retorno.contatos ?? []
+        const match = contatos.find(
+          (item: any) => (item.contato?.email ?? '').trim().toLowerCase() === emailNorm
+        )
+
+        if (match) {
+          const c = match.contato
+          const nome      = c.razaoSocial || c.nome || emailNorm
+          const cpf_cnpj  = c.cnpj || c.cpf || ''
+          const tipo      = c.tipo_pessoa || 'J'
+          const fone      = c.fone || ''
+
+          // Auto-importa no cadastros para os próximos logins serem instantâneos
+          await supabase.from('cadastros').upsert(
+            { email: emailNorm, nome, cpf_cnpj, status: 'importado', tipo_pessoa: tipo, fone, celular: fone },
+            { onConflict: 'email' }
+          )
+
+          return new Response(
+            JSON.stringify({ found: true, nome, cpf_cnpj }),
+            { headers: { ...CORS, 'Content-Type': 'application/json' } }
+          )
         }
+
+        const totalPages = parseInt(tinyData.retorno.numero_paginas ?? '1', 10)
+        if (page >= totalPages) break
+        // Pequena pausa para não sobrecarregar a API do Tiny
+        await new Promise(r => setTimeout(r, 150))
       }
     }
 
